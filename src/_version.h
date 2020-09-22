@@ -15,8 +15,9 @@
 #define AUDIOMUX_VERSION_STR "0.2.00"
 #define AUDIOMUX_VERSION_NUM    0200
 
-// 0200     22Sep2020           Dropping makefile TARGET = XCORE-XA-MODULE since I have not found any way to flash it
-//                              I had several vacant STARTKIT, using it instead.
+// 0200     22Sep2020           New project from _AudioMux_controller 0197 which was for the xCORE-XA Code Module.
+//                              Dropping makefile TARGET = XCORE-XA-MODULE since I have not found any way to flash it.
+//                              I had two vacant STARTKIT, using one of those instead.
 //                              /src/arm/_AudioMux_controller removed. It seems like keeping the rest of the sources under src/xcore/ is ok (but I removed that level as well)
 //                              makfile now XCORE_ARM_PROJECT = 0
 //                              NEW startKIT mounted for the XCore-XA. This works
