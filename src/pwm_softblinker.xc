@@ -1,5 +1,7 @@
 /*
-  * pwm_softblinker.xc
+ * pwm_softblinker.xc
+ *
+ * This later was the start of what ended up as lib_pwm_softblinker
  *
  *  Created on: 22. juni 2020
  *      Author: teig
@@ -55,14 +57,19 @@ void softblinker_task (
 
                 timeout += pwm_one_percent_ticks;
 
-                now_percentage += inc_percentage; // [0..100] but [-1..101] possible if 0 or 100 was just set in set_sofblink_percentages
-                {now_percentage, min_set, max_set} = in_range_signed_min_max_set (now_percentage, min_percentage, max_percentage); // [0..100]
+                // AMUX=006:
 
-                if ((min_set) or (max_set)) { // Send 100 and 0 only once
-                    inc_percentage = (-inc_percentage); // Change sign for next timeout to scan in the other direction
-                } else {
-                    if_pwm.set_percentage ((percentage_t) now_percentage); // [0..100]
-                }
+                if (now_percentage >= max_percentage) {
+                    inc_percentage = (-1);
+                    now_percentage = max_percentage;
+                } else if (now_percentage <= min_percentage){
+                    inc_percentage = 1;
+                    now_percentage = min_percentage;
+                } else {}
+
+                now_percentage += inc_percentage;
+
+                if_pwm.set_percentage ((percentage_t) now_percentage); // [0..100]
 
             } break;
 

@@ -12,9 +12,10 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "0.2.00"
-#define AUDIOMUX_VERSION_NUM    0200
-
+#define AUDIOMUX_VERSION_STR "1.1.0"
+#define AUDIOMUX_VERSION_NUM    1100
+// 1100     24Sep2020           New text in SCREEN_ABOUT and ticking version up a lot!
+// 0201     24Sep2020 AMUX=006  softblinker_task PWM control done as in the new lib_pwm_softblinker (which as actually made starting off from _this_ code)
 // 0200     22Sep2020           New project from _AudioMux_controller 0197 which was for the xCORE-XA Code Module.
 //                              Dropping makefile TARGET = XCORE-XA-MODULE since I have not found any way to flash it.
 //                              I had two vacant STARTKIT, using one of those instead.

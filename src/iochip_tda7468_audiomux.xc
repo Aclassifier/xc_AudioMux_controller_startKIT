@@ -147,5 +147,3 @@ bitfield_value_t tda7468_make_surround (
 
     return bitfield_value_return;
 }
-
-
