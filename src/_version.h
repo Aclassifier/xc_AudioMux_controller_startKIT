@@ -12,8 +12,10 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.1.0"
-#define AUDIOMUX_VERSION_NUM    1100
+#define AUDIOMUX_VERSION_STR "1.1.01" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1101
+// 1101     25Oxt2020 AMUX=007  New screen is SCREEN_INPUT, to change TDA7468 input channel IN1 (default), IN2, IN3 or IN4
+//                              Constraints: C:8/4 T:10/4 C:32/7 M:24532 S:2664 C:18478 D:3394
 // 1100     24Sep2020           New text in SCREEN_ABOUT and ticking version up a lot!
 // 0201     24Sep2020 AMUX=006  softblinker_task PWM control done as in the new lib_pwm_softblinker (which as actually made starting off from _this_ code)
 // 0200     22Sep2020           New project from _AudioMux_controller 0197 which was for the xCORE-XA Code Module.

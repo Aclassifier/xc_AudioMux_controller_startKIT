@@ -53,11 +53,14 @@ typedef enum i2c_reg_addr_audio_mux_tda7468_e {
 #define DATA_INPUT_SELECT_IN5_MUTE_MASK 0x04
 #define DATA_INPUT_SELECT_MIC_GAIN_MASK 0x38
 #define DATA_INPUT_SELECT_MIC_OFF_MASK  0x20
+
+#define INPUT_MIN_DEFAULT 0 // [0..3] is channel [1..4]
+#define INPUT_NUM         4
 //
-#define DATA_INPUT_SELECT_IN1_VAL               (0 << 0)
+#define DATA_INPUT_SELECT_IN1_VAL               (0 << 0) // INPUT_MIN_DEFAULT
 #define DATA_INPUT_SELECT_IN2_VAL               (1 << 0)
 #define DATA_INPUT_SELECT_IN3_VAL               (2 << 0)
-#define DATA_INPUT_SELECT_IN4_VAL               (3 << 0)
+#define DATA_INPUT_SELECT_IN4_VAL               (3 << 0) // INPUT_MAX
 #define DATA_INPUT_SELECT_MUTE_ON_SOUND_OFF_VAL (1 << 2) // Opposite bitvalue to DATA_OUTPUT_MUTE_ON_SOUND_OFF_VAL
 #define DATA_INPUT_SELECT_MUTE_OFF_SOUND_ON_VAL (0 << 2) // Opposite bitvalue to DATA_OUTPUT_MUTE_OFF_SOUND_ON_VAL
 #define DATA_INPUT_SELECT_MIC_GAIN_14DB_VAL     (0 << 3)
@@ -125,6 +128,8 @@ typedef int8_t  volume_dB_t; // Using dB values instead of the numerical typical
 //              volume_dB_t signed  sizeof this is 4*88*3 = 1056 bytes, saves 88*1 = 792 bytes
 typedef int8_t  tone_dB_t;
 typedef uint8_t bitfield_value_t;
+typedef uint8_t input_channel_t; // AMUX=007 new
+
 
 #define NUM_VOLUME_SETTINGS             88
 #define NUM_VOLUME_TABLES                3
@@ -207,6 +212,9 @@ bitfield_value_t tda7468_make_tone (
 
 bitfield_value_t tda7468_make_surround (
         const bool volume_buffer_gain_6_dB);
+
+bitfield_value_t tda7468_make_input_channel (
+        const input_channel_t input_channel);
 
 #else
     #error Nested include IOCHIP_TDA7468_AUDIO_MUX_H_

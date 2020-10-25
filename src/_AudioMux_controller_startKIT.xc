@@ -60,6 +60,7 @@ typedef enum display_screen_name_t {
     SCREEN_BASS,
     SCREEN_TREBLE,
     SCREEN_RESET,
+    SCREEN_INPUT,
     SCREEN_ABOUT, // LAST SEEN
     SCREEN_DARK   // LAST
 } display_screen_name_t;
@@ -123,6 +124,7 @@ typedef struct {
     bool              volume_buffer_gain_6_dB;
     tone_dB_t         bass_dB;
     tone_dB_t         treble_dB;
+    input_channel_t   input_channel; // AMUX=007 new
     bool              i2c_ok;
     unsigned          i2c_err_cnt;
 
@@ -160,6 +162,7 @@ bool // i2c_ok
         client  i2c_internal_commands_if  if_i2c_internal_commands) {
 
     bool i2c_ok = true;
+    bool do_display_print = true;
 
     if (display_context.state == is_on) {
 
@@ -180,6 +183,7 @@ bool // i2c_ok
                     setCursor(102,24); // 103 is too far. 24 on the last line, 25 one pixel below (ok) and 26 outside
                     display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "+6"); // Two cars, used in next setCursor
                     display_print (display_context.display_ts1_chars, display_context.sprintf_numchars); // num chars not including NUL
+
                     setCursor(102+(6*2)+2,24); // The space looks too large, even if it's the same ratio as for large chars
                     display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "dB");
                     display_print (display_context.display_ts1_chars, display_context.sprintf_numchars); // num chars not including NUL
@@ -207,6 +211,37 @@ bool // i2c_ok
                         audiomux_context.volume_dB,
                         audiomux_context.bass_dB,
                         audiomux_context.treble_dB);
+            } break;
+            case SCREEN_INPUT: {
+
+                setCursor(0,10);
+                setTextSize(2); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
+
+                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "IN%d", audiomux_context.input_channel+1);
+
+                // x,y=0,0 is left top and for SSD1306_128_32 x,y=127,31 is right bottom
+                #define X0         60
+                #define Y0          8
+                #define X_DIST     20
+                #define Y_DIST     16
+                #define X_OUT_SKEW  5
+                #define RADIUS      6
+
+                const int16_t x0 [INPUT_NUM] = {X0, X0,        X0+X_DIST, X0+X_DIST};
+                const int16_t y0 [INPUT_NUM] = {Y0, Y0+Y_DIST, Y0,        Y0+Y_DIST};
+
+                // IN1-IN4: circles with thin circumference, but filled for active IN:
+                for (unsigned ix=INPUT_MIN_DEFAULT; ix < INPUT_NUM; ix++) {
+                    if (ix == audiomux_context.input_channel) {
+                        fillCircle (x0[ix], y0[ix], RADIUS, WHITE);
+                    } else {
+                        drawCircle (x0[ix], y0[ix], RADIUS, WHITE);
+                    }
+                }
+
+                // OUT = circle with thick circumference:
+                fillCircle (X0+X_DIST+X_DIST+X_OUT_SKEW, Y0, RADIUS,   WHITE);
+                fillCircle (X0+X_DIST+X_DIST+X_OUT_SKEW, Y0, RADIUS-2, BLACK);
             } break;
             case SCREEN_ABOUT: {
                 const char char_OE_str[]          = CHAR_OE_STR; // Ø
@@ -240,14 +275,13 @@ bool // i2c_ok
                        //                                            Øyvind Teig
                 #endif
 
-
-
-
             } break;
             default: {} break;
         }
 
-        display_print (display_context.display_ts1_chars, display_context.sprintf_numchars); // num chars not including NUL
+        if (do_display_print) {
+            display_print (display_context.display_ts1_chars, display_context.sprintf_numchars); // num chars not including NUL
+        } else {}
 
         i2c_ok = writeToDisplay_i2c_all_buffer(if_i2c_internal_commands);
         // debug_print ("%s\n", i2c_ok ? "ok2" : "err2");
@@ -289,10 +323,13 @@ void do_audiomux_and_display (
 
     log.cnt = do_print_log (log, buttons_context);
 
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R2_SURROUND]        = tda7468_make_surround (audiomux_context.volume_buffer_gain_6_dB);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R3_VOLUME_LEFT]     = tda7468_make_volume   (audiomux_context.volume_dB, audiomux_context.volume_dB_table);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R4_VOLUME_RIGHT]    = tda7468_make_volume   (audiomux_context.volume_dB ,audiomux_context.volume_dB_table);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R5_TREBLE_AND_BASS] = tda7468_make_tone     (audiomux_context.bass_dB,   audiomux_context.treble_dB);
+    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] and_eq compl DATA_INPUT_SELECT_IN_1_4_MASK; // zero those bits only
+    //
+    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] or_eq tda7468_make_input_channel(audiomux_context.input_channel); // fill those bits
+    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R2_SURROUND]             =     tda7468_make_surround     (audiomux_context.volume_buffer_gain_6_dB);
+    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R3_VOLUME_LEFT]          =     tda7468_make_volume       (audiomux_context.volume_dB, audiomux_context.volume_dB_table);
+    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R4_VOLUME_RIGHT]         =     tda7468_make_volume       (audiomux_context.volume_dB ,audiomux_context.volume_dB_table);
+    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R5_TREBLE_AND_BASS]      =     tda7468_make_tone         (audiomux_context.bass_dB,   audiomux_context.treble_dB);
 
     Display_screen (display_context, audiomux_context, if_i2c_internal_commands);
 
@@ -326,11 +363,12 @@ void audiomux_context_init (audiomux_context_t &audiomux_context) {
     audiomux_context.volume_buffer_gain_6_dB = false;
     audiomux_context.bass_dB                 = 0;
     audiomux_context.treble_dB               = 0;
+    audiomux_context.input_channel           = INPUT_MIN_DEFAULT;
 
     // INIT THE 8 REGISTERS FOR THE AUDIOMUX
 
     audiomux_context.i2c_bytes[IOF_I2C_SUBADDRESS]                                 = TDA7468_R0_INPUT_SELECT_AND_MIC bitor TDA7468_REG_ADDR_AUTOINCREMENT_MASK;
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] = (DATA_INPUT_SELECT_IN1_VAL bitor DATA_INPUT_SELECT_MUTE_OFF_SOUND_ON_VAL bitor DATA_INPUT_SELECT_MIC_OFF_VAL);
+    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] = (tda7468_make_input_channel(audiomux_context.input_channel) bitor DATA_INPUT_SELECT_MUTE_OFF_SOUND_ON_VAL bitor DATA_INPUT_SELECT_MIC_OFF_VAL);
     audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R1_INPUT_GAIN]           = DATA_INPUT_GAIN_00_DB_VAL; // Just hard-code this
     audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R2_SURROUND]             = tda7468_make_surround (audiomux_context.volume_buffer_gain_6_dB);
     audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R3_VOLUME_LEFT]          = tda7468_make_volume   (audiomux_context.volume_dB, audiomux_context.volume_dB_table);
@@ -487,6 +525,9 @@ void buttons_client_task (
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
+                        case SCREEN_INPUT: {
+                            display_pending_dark = pending_dark_from_long_left_button;
+                        } break;
                         case SCREEN_RESET: { // Button pressed for som time (repeat) at timeout
                             if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 // Keep volume_dB
@@ -582,7 +623,6 @@ void buttons_client_task (
                 // HANDLE BUTTONS (button_states_t not needed)
 
                 const bool pressed_now      = (button_action == BUTTON_ACTION_PRESSED);
-                const bool pressed_for_long = (button_action == BUTTON_ACTION_PRESSED_FOR_LONG);
                 const bool released_now     = (button_action == BUTTON_ACTION_RELEASED);
 
                 // Left button is taken on released_now since I can press and hold it and then the display goes to dark.
@@ -676,6 +716,9 @@ void buttons_client_task (
                                      allow_next_screen = true;
                                  }
                             } break;
+                            case SCREEN_INPUT: { // Button press
+                                allow_next_screen = true;
+                            } break;
                             case SCREEN_ABOUT: { // Button press
                                 allow_next_screen = true;
                             } break;
@@ -709,6 +752,10 @@ void buttons_client_task (
                                         audiomux_context.treble_dB = audiomux_context.treble_dB + TONE_STEP_DB; // AMUX=001
                                         buttons_repeat_clear (buttons_context);
                                     } break;
+                                    case SCREEN_INPUT: { // Button press
+                                        audiomux_context.input_channel = audiomux_context.input_channel - 1;
+                                        audiomux_context.input_channel and_eq (INPUT_NUM-1);
+                                    } break;
                                     case SCREEN_ABOUT: { // Button press
                                         // No code
                                     } break;
@@ -735,6 +782,10 @@ void buttons_client_task (
                                         audiomux_context.bass_dB   = audiomux_context.bass_dB   + TONE_STEP_DB; // AMUX=001
                                         audiomux_context.treble_dB = audiomux_context.treble_dB - TONE_STEP_DB; // AMUX=001
                                         buttons_repeat_clear (buttons_context);
+                                    } break;
+                                    case SCREEN_INPUT: { // Button press
+                                        audiomux_context.input_channel = audiomux_context.input_channel + 1;
+                                        audiomux_context.input_channel and_eq (INPUT_NUM-1);
                                     } break;
                                     case SCREEN_ABOUT: { // Button press
                                         // No code

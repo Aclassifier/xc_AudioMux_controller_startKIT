@@ -147,3 +147,14 @@ bitfield_value_t tda7468_make_surround (
 
     return bitfield_value_return;
 }
+
+// External function
+
+bitfield_value_t tda7468_make_input_channel ( // AMUX=007 new
+        const input_channel_t input_channel) {
+
+    bitfield_value_t bitfield_value_return = input_channel bitand DATA_INPUT_SELECT_IN_1_4_MASK;
+
+    return bitfield_value_return;
+
+}
