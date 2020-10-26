@@ -525,9 +525,6 @@ void buttons_client_task (
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
-                        case SCREEN_INPUT: {
-                            display_pending_dark = pending_dark_from_long_left_button;
-                        } break;
                         case SCREEN_RESET: { // Button pressed for som time (repeat) at timeout
                             if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 // Keep volume_dB
@@ -543,6 +540,7 @@ void buttons_client_task (
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
+                        case SCREEN_INPUT: // AMUX=008 now shares code with this:
                         case SCREEN_ABOUT: { // Button pressed for som time (repeat) at timeout
                             // No code, this also needs to time out into dark
                             if (buttons_context.buttons_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
