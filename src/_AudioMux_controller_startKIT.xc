@@ -74,6 +74,9 @@ typedef struct {
     char                  display_ts1_chars [SSD1306_TS1_DISPLAY_VISIBLE_CHAR_LEN]; // 84 chars for display needs 85 char buffer (with NUL) when sprintf is use (use SSD1306_TS1_DISPLAY_ALL_CHAR_LEN for full flexibility)
     int                   sprintf_numchars;
     unsigned              screen_timeouts_since_last_button_countdown; // From NUM_TIMEOUTS_BEFORE_SCREEN_DARK to zero for SCREEN_DARK
+    #if (TEST_DISPLAY_ON_CNT==1)
+         unsigned         display_on_cnt;
+    #endif
 } display_context_t;
 
 // For set_one_percent_ms and set_sofblink_percentages
@@ -249,17 +252,32 @@ bool // i2c_ok
 
                 setTextSize(1); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
                 #if (IS_MYTARGET == IS_MYTARGET_STARTKIT)
-                    display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
-                                          "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG   %s BLOG 208",
-                                          __DATE__,
-                                          AUDIOMUX_VERSION_STR,
-                                          XTIMECOMPOSER_VERSION_STR,
-                                          char_OE_str,
-                                          char_right_arrow_str);
-                       //                                            AudioMUX + startKIT
-                       //                                            XMOS XC JUN 18 2020
-                       //                                            V:1.1.0  xT:14.4.1
-                       //                                            Ø.TEIG   → BLOG 208
+                    #if (TEST_DISPLAY_ON_CNT==1)
+                        display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
+                                              "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG  (D:%u)",
+                                              __DATE__,
+                                              AUDIOMUX_VERSION_STR,
+                                              XTIMECOMPOSER_VERSION_STR,
+                                              char_OE_str,
+                                              display_context.display_on_cnt);
+                           //                                            AudioMUX + startKIT
+                           //                                            XMOS XC JUN 18 2020
+                           //                                            V:1.1.0  xT:14.4.1
+                           //                                            Ø.TEIG  (D:23)
+                    #else
+                        display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
+                                              "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG   %s BLOG 208",
+                                              __DATE__,
+                                              AUDIOMUX_VERSION_STR,
+                                              XTIMECOMPOSER_VERSION_STR,
+                                              char_OE_str,
+                                              char_right_arrow_str);
+                           //                                            AudioMUX + startKIT
+                           //                                            XMOS XC JUN 18 2020
+                           //                                            V:1.1.0  xT:14.4.1
+                           //                                            Ø.TEIG   → BLOG 208
+                    #endif
+
                 #elif (IS_MYTARGET == IS_MYTARGET_XCORE_200_EXPLORER)
                     #warning MISSING TEXT
                 #elif (IS_MYTARGET == IS_MYTARGET_XCORE_XA_MODULE)
@@ -298,6 +316,9 @@ void display_context_init (display_context_t &display_context) {
     display_context.display_screen_name                         = SCREEN_VOLUME;
     display_context.state                                       = is_on;
     display_context.screen_timeouts_since_last_button_countdown = NUM_TIMEOUTS_BEFORE_SCREEN_DARK;
+    #if (TEST_DISPLAY_ON_CNT==1)
+        display_context.display_on_cnt = 0;
+    #endif
 }
 
 void buttons_context_init (buttons_context_t &buttons_context) {
@@ -664,6 +685,9 @@ void buttons_client_task (
                         const bool from_screen_dark = (display_context.display_screen_name == SCREEN_DARK);
 
                         if (from_screen_dark) {
+                            #if (TEST_DISPLAY_ON_CNT==1)
+                                display_context.display_on_cnt++;
+                            #endif
                             display_context.display_screen_name = display_context.display_screen_name_when_into_dark;
                             // FROM DARK SCREEN. SAME AS PREVIOUS
                             if_softblinker.set_one_percent_ms (SOFTBLINK_LIT_DISPLAY_ONE_PERCENT_MS);

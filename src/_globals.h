@@ -86,6 +86,8 @@
     #endif
 #endif
 
+#define TEST_DISPLAY_ON_CNT 1
+
 #define DEBUG_PRINT_GLOBAL_APP 0 // 0: all printf off
                                  // 1: controlled locally in each xc file. Unit must be connected to xTIMEcomposer. Not for off-line battery usage!
 
