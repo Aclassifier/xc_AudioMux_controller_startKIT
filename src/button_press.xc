@@ -23,7 +23,16 @@
 #define DEBUG_PRINT_BUTTON_PRESS 0
 #define debug_print(fmt, ...) do { if((DEBUG_PRINT_BUTTON_PRESS==1) and (DEBUG_PRINT_GLOBAL_APP==1)) printf(fmt, __VA_ARGS__); } while (0)
 
-#define DEBOUNCE_TIMEOUT_50_MS 50
+#if defined TEST_DISPLAY_ON_CNT
+    #if (TEST_DISPLAY_ON_CNT==1)
+        #define DEBOUNCE_TIMEOUT_MS TEST_DEBOUNCE_TIMEOUT_MS
+    #else
+        #define DEBOUNCE_TIMEOUT_MS 50
+    #endif
+#else
+    #define DEBOUNCE_TIMEOUT_MS 50
+#endif
+
 #define BUTTON_PRESSED          0 // If pullup resistor
 #define BUTTON_RELEASED         1 // If pullup resistor
 
@@ -62,7 +71,7 @@ void Button_Task (
                 tmr :> current_time;
                 // Calculate time to event after debounce period
                 // note that XS1_TIMER_HZ is defined in timer.h
-                timeout = current_time + (DEBOUNCE_TIMEOUT_50_MS * XS1_TIMER_KHZ);
+                timeout = current_time + (DEBOUNCE_TIMEOUT_MS * XS1_TIMER_KHZ);
                 // If the button is not stable (i.e. bouncing around) then select
                 // when we the timer reaches the timeout to reenter a stable period
             } break;

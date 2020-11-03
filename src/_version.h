@@ -12,9 +12,12 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.1.03" // x.y.zz
-#define AUDIOMUX_VERSION_NUM    1103
+#define AUDIOMUX_VERSION_STR "1.1.04" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1104
+// 1104     03Nov2020           Extending DEBOUNCE_TIMEOUT_MS from 50 to TEST_DEBOUNCE_TIMEOUT_MS 100
 // 1103     02Nov2020           TEST_DISPLAY_ON_CNT since seems to go on by itself, EMC from fridge on keys?
+//                              DEBOUNCE_TIMEOUT_MS = 50
+//                              Had about display_on_cnt to 8 in 36 hours
 // 1102     26Oct2020 AMUX=008  SCREEN_INPUT and button pressed for long into dark did not work like assumed
 //                              Constraints: C:8/4 T:10/4 C:32/7 M:24504 S:2664 C:18446 D:3394
 // 1101     25Oct2020 AMUX=007  New screen is SCREEN_INPUT, to change TDA7468 input channel IN1 (default), IN2, IN3 or IN4
