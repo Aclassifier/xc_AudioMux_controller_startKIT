@@ -26,7 +26,7 @@
                                  // XC/XMOS 100 MHz increment every 10 ns for max 2exp32 = 4294967296,
                                  // ie. divide by 100 mill = 42.9.. seconds
 
-    typedef enum {led_on, led_off} led_on_low_t; // 0 is led_on
+    typedef enum {led_on, led_off} led_on_low_e; // 0 is led_on
 
     #define AFTER_32(a,b) ((a-b)>0)
 
@@ -86,8 +86,7 @@
     #endif
 #endif
 
-#define TEST_DISPLAY_ON_CNT 1
-#define TEST_DEBOUNCE_TIMEOUT_MS 100
+#define USE_BUTTON_TASK_NUM    2
 
 #define DEBUG_PRINT_GLOBAL_APP 0 // 0: all printf off
                                  // 1: controlled locally in each xc file. Unit must be connected to xTIMEcomposer. Not for off-line battery usage!

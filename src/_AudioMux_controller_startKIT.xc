@@ -61,8 +61,9 @@ typedef enum display_screen_name_t {
     SCREEN_TREBLE,
     SCREEN_RESET,
     SCREEN_INPUT,
-    SCREEN_ABOUT, // LAST SEEN
-    SCREEN_DARK   // LAST
+    SCREEN_BUTTONS, // AMUX=009
+    SCREEN_ABOUT,   // LAST SEEN
+    SCREEN_DARK     // LAST
 } display_screen_name_t;
 
 typedef enum {is_on, is_off} display_state_e;
@@ -74,9 +75,7 @@ typedef struct {
     char                  display_ts1_chars [SSD1306_TS1_DISPLAY_VISIBLE_CHAR_LEN]; // 84 chars for display needs 85 char buffer (with NUL) when sprintf is use (use SSD1306_TS1_DISPLAY_ALL_CHAR_LEN for full flexibility)
     int                   sprintf_numchars;
     unsigned              screen_timeouts_since_last_button_countdown; // From NUM_TIMEOUTS_BEFORE_SCREEN_DARK to zero for SCREEN_DARK
-    #if (TEST_DISPLAY_ON_CNT==1)
-         unsigned         display_on_cnt;
-    #endif
+    unsigned              display_on_cnt;
 } display_context_t;
 
 // For set_one_percent_ms and set_sofblink_percentages
@@ -94,6 +93,7 @@ typedef struct {
 
 #define NUM_TIMEOUTS_PER_SECOND     2
 #define NUM_TIMEOUTS_BEFORE_REPEAT (1.5 * NUM_TIMEOUTS_PER_SECOND)  // 1.5 seconds
+//      BUTTON_ACTION_PRESSED_FOR_LONG_TIMEOUT_MS must be so long that it does not interfere here
 
 // From makefile
 #if (DISPLAY_FAST_DARK==1)
@@ -115,7 +115,9 @@ typedef enum {was_none, was_button, was_timeout} last_action_e;
 typedef struct {
     bool              pressed_ever;
     bool              button_action_taken;
-    button_action_t   buttons_action [BUTTONS_NUM_CLIENTS];
+    button_action_t   button_action       [BUTTONS_NUM_CLIENTS];
+    unsigned          button_edge_cnt     [BUTTONS_NUM_CLIENTS];
+    unsigned          button_edge_cnt_max [BUTTONS_NUM_CLIENTS]; // No function to ever clear it!
     repeat_t          repeat;
     last_action_e     last_action; // AMUX=005
     bool              ignore_left_button_release_no_wake_from_dark; // AMUX=006 new. Since I started with LEFT_BUTTON take on released
@@ -144,24 +146,51 @@ typedef struct {
 // ---
 
 unsigned do_print_log (
+        const unsigned    caller,
         log_t             &log,
         buttons_context_t &buttons_context) {
 
     unsigned cnt = log.cnt + 1;
-    debug_print ("cnt %u BUTTON=%u%u%u\n", log.cnt,
-            buttons_context.buttons_action[IOF_BUTTON_LEFT],
-            buttons_context.buttons_action[IOF_BUTTON_CENTER],
-            buttons_context.buttons_action[IOF_BUTTON_RIGHT]);
+
+    // buttons_context.button_action
+    // BUTTON=0 BUTTON_ACTION_VOID
+    // BUTTON=1 BUTTON_ACTION_PRESSED
+    // BUTTON=2 BUTTON_ACTION_PRESSED_FOR_LONG
+    // BUTTON=3 BUTTON_ACTION_RELEASED
+
+    debug_print ("(%u) cnt %u BUTTON=%u.%u.%u events=%u.%u.%u\n",
+            caller,
+            log.cnt,
+            buttons_context.button_action[IOF_BUTTON_LEFT],
+            buttons_context.button_action[IOF_BUTTON_CENTER],
+            buttons_context.button_action[IOF_BUTTON_RIGHT],
+            buttons_context.button_edge_cnt_max[IOF_BUTTON_LEFT],
+            buttons_context.button_edge_cnt_max[IOF_BUTTON_CENTER],
+            buttons_context.button_edge_cnt_max[IOF_BUTTON_RIGHT]);
 
     return (cnt);
 }
 
+
+void do_display_params_zero ( display_context_t &display_context) {
+
+    Clear_All_Pixels_In_Buffer();
+
+    for (int index_of_char = 0; index_of_char < NUM_ELEMENTS(display_context.display_ts1_chars); index_of_char++) {
+        display_context.display_ts1_chars [index_of_char] = ' ';
+    }
+
+    setTextColor(WHITE);
+    setCursor(0,0);
+    setTextSize(1); // SSD1306_TS1_DISPLAY_VISIBLE_CHAR_NUM gives 21 chars per line
+}
 
 // MUST NOT MODIFY ANY STATE VALUES!
 bool // i2c_ok
     Display_screen (
         display_context_t                 &display_context,
         audiomux_context_t                &audiomux_context,
+        buttons_context_t                 &buttons_context,
         client  i2c_internal_commands_if  if_i2c_internal_commands) {
 
     bool i2c_ok = true;
@@ -169,20 +198,12 @@ bool // i2c_ok
 
     if (display_context.state == is_on) {
 
-        Clear_All_Pixels_In_Buffer();
-
-        for (int index_of_char = 0; index_of_char < NUM_ELEMENTS(display_context.display_ts1_chars); index_of_char++) {
-            display_context.display_ts1_chars [index_of_char] = ' ';
-        }
-
-        setTextColor(WHITE);
-        setCursor(0,0);
+        do_display_params_zero (display_context);
 
         switch (display_context.display_screen_name) {
             case SCREEN_VOLUME: {
                 if (audiomux_context.volume_buffer_gain_6_dB) {
                     // ADD "+6 dB" in small letters on the bottom line, to the right
-                    setTextSize(1); // SSD1306_TS1_DISPLAY_VISIBLE_CHAR_NUM gives 21 chars per line
                     setCursor(102,24); // 103 is too far. 24 on the last line, 25 one pixel below (ok) and 26 outside
                     display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "+6"); // Two cars, used in next setCursor
                     display_print (display_context.display_ts1_chars, display_context.sprintf_numchars); // num chars not including NUL
@@ -205,7 +226,6 @@ bool // i2c_ok
                 display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "  DISKANT\n  %d dB", audiomux_context.treble_dB);
             } break;
             case SCREEN_RESET: {
-                setTextSize(1); // SSD1306_TS1_DISPLAY_VISIBLE_CHAR_NUM gives 21 chars per line
                 display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "VOLUM BASS DISKANT\n\n");
                 display_print (display_context.display_ts1_chars, display_context.sprintf_numchars); // num chars not including NUL
 
@@ -246,39 +266,53 @@ bool // i2c_ok
                 fillCircle (X0+X_DIST+X_DIST+X_OUT_SKEW, Y0, RADIUS,   WHITE);
                 fillCircle (X0+X_DIST+X_DIST+X_OUT_SKEW, Y0, RADIUS-2, BLACK);
             } break;
+            case SCREEN_BUTTONS: {
+
+                do_display_params_zero (display_context);
+                i2c_ok = writeToDisplay_i2c_all_buffer(if_i2c_internal_commands);
+                delay_milliseconds (10);
+
+                const char char_AA_str[] = CHAR_AA_STR; // Å
+                const char char_aa_str[] = CHAR_aa_STR; // å
+                const char char_OE_str[] = CHAR_OE_STR; // Ø
+                setTextSize(1); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
+
+                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
+                        "DISPLAY P%s %u\nKNAPPST%sY n%s,MAX\n%u:%u\n    %u:%u  %u:%u",
+                        char_AA_str, // PÅ
+                        display_context.display_on_cnt,
+                        char_OE_str, char_aa_str, // STØY nå
+                        buttons_context.button_edge_cnt[IOF_BUTTON_LEFT],   buttons_context.button_edge_cnt_max[IOF_BUTTON_LEFT],
+                        buttons_context.button_edge_cnt[IOF_BUTTON_CENTER], buttons_context.button_edge_cnt_max[IOF_BUTTON_CENTER],
+                        buttons_context.button_edge_cnt[IOF_BUTTON_RIGHT],  buttons_context.button_edge_cnt_max[IOF_BUTTON_RIGHT]);
+
+                // Observe "nå" (NOW) means for BUTTON_ACTION_PRESSED since that's when this function is acelled,
+                // but "MAX" for both BUTTON_ACTION_PRESSED and BUTTON_ACTION_RELEASED. That's why small and capital letters of "nå,MAX"
+                //
+                //                                            DISPLAY PÅ 8
+                //                                            KNAPPSTØY nå:MAX
+                //                                            1:6
+                //                                                2:3  1:5
+            } break;
             case SCREEN_ABOUT: {
                 const char char_OE_str[]          = CHAR_OE_STR; // Ø
                 const char char_right_arrow_str[] = CHAR_RIGHT_ARROW_STR;
 
                 setTextSize(1); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
-                #if (IS_MYTARGET == IS_MYTARGET_STARTKIT)
-                    #if (TEST_DISPLAY_ON_CNT==1)
-                        display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
-                                              "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG  (D:%u)",
-                                              __DATE__,
-                                              AUDIOMUX_VERSION_STR,
-                                              XTIMECOMPOSER_VERSION_STR,
-                                              char_OE_str,
-                                              display_context.display_on_cnt);
-                           //                                            AudioMUX + startKIT
-                           //                                            XMOS XC JUN 18 2020
-                           //                                            V:1.1.0  xT:14.4.1
-                           //                                            Ø.TEIG  (D:23)
-                    #else
-                        display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
-                                              "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG   %s BLOG 208",
-                                              __DATE__,
-                                              AUDIOMUX_VERSION_STR,
-                                              XTIMECOMPOSER_VERSION_STR,
-                                              char_OE_str,
-                                              char_right_arrow_str);
-                           //                                            AudioMUX + startKIT
-                           //                                            XMOS XC JUN 18 2020
-                           //                                            V:1.1.0  xT:14.4.1
-                           //                                            Ø.TEIG   → BLOG 208
-                    #endif
 
-                #elif (IS_MYTARGET == IS_MYTARGET_XCORE_200_EXPLORER)
+                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
+                                      "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG   %s BLOG 208",
+                                      __DATE__,
+                                      AUDIOMUX_VERSION_STR,
+                                      XTIMECOMPOSER_VERSION_STR,
+                                      char_OE_str,
+                                      char_right_arrow_str);
+                   //                                            AudioMUX + startKIT
+                   //                                            XMOS XC JUN 18 2020
+                   //                                            V:1.1.0  xT:14.4.1
+                   //                                            Ø.TEIG   → BLOG 208
+
+                #if (IS_MYTARGET == IS_MYTARGET_XCORE_200_EXPLORER)
                     #warning MISSING TEXT
                 #elif (IS_MYTARGET == IS_MYTARGET_XCORE_XA_MODULE)
                     display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
@@ -316,15 +350,21 @@ void display_context_init (display_context_t &display_context) {
     display_context.display_screen_name                         = SCREEN_VOLUME;
     display_context.state                                       = is_on;
     display_context.screen_timeouts_since_last_button_countdown = NUM_TIMEOUTS_BEFORE_SCREEN_DARK;
-    #if (TEST_DISPLAY_ON_CNT==1)
-        display_context.display_on_cnt = 0;
-    #endif
+    display_context.display_on_cnt                              = 0;
+}
+
+void button_edge_cnt_init (buttons_context_t &buttons_context) {
+
+    for (int iof_button = 0; iof_button < BUTTONS_NUM_CLIENTS; iof_button++) {
+       buttons_context.button_edge_cnt    [iof_button] = 0;
+       buttons_context.button_edge_cnt_max[iof_button] = 0;
+    }
 }
 
 void buttons_context_init (buttons_context_t &buttons_context) {
 
     for (int iof_button = 0; iof_button < BUTTONS_NUM_CLIENTS; iof_button++) {
-       buttons_context.buttons_action[iof_button] = BUTTON_ACTION_VOID;
+       buttons_context.button_action[iof_button] = BUTTON_ACTION_VOID;
     }
 
     buttons_context.button_action_taken                          = false;
@@ -332,17 +372,17 @@ void buttons_context_init (buttons_context_t &buttons_context) {
     buttons_context.pressed_ever                                 = false;
     buttons_context.last_action                                  = was_none;
     buttons_context.ignore_left_button_release_no_wake_from_dark = false;
+
+    button_edge_cnt_init (buttons_context);
 }
 
 void do_audiomux_and_display (
         audiomux_context_t                &audiomux_context,
         client  i2c_general_commands_if   if_i2c_general_commands,
         display_context_t                 &display_context,
-        buttons_context_t                 &buttons_context, // Only for do_print_log
+        buttons_context_t                 &buttons_context, // Mostly for do_print_log
         log_t                             log,
         client  i2c_internal_commands_if  if_i2c_internal_commands) {
-
-    log.cnt = do_print_log (log, buttons_context);
 
     audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] and_eq compl DATA_INPUT_SELECT_IN_1_4_MASK; // zero those bits only
     //
@@ -352,7 +392,8 @@ void do_audiomux_and_display (
     audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R4_VOLUME_RIGHT]         =     tda7468_make_volume       (audiomux_context.volume_dB ,audiomux_context.volume_dB_table);
     audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R5_TREBLE_AND_BASS]      =     tda7468_make_tone         (audiomux_context.bass_dB,   audiomux_context.treble_dB);
 
-    Display_screen (display_context, audiomux_context, if_i2c_internal_commands);
+    Display_screen (display_context, audiomux_context, buttons_context, if_i2c_internal_commands);
+    do_print_log (0, log, buttons_context); // ingnoring return value to avoid more than one increment
 
     audiomux_context.i2c_ok =
             if_i2c_general_commands.write_reg_ok (
@@ -453,7 +494,7 @@ void buttons_client_task (
         Adafruit_GFX_constructor (SSD1306_LCDWIDTH, SSD1306_LCDHEIGHT);
         Adafruit_SSD1306_i2c_begin (if_i2c_internal_commands, p_display_notReset);
 
-        Display_screen (display_context, audiomux_context, if_i2c_internal_commands);
+        Display_screen (display_context, audiomux_context, buttons_context, if_i2c_internal_commands);
     }
 
     debug_print ("CMD=%02X ", audiomux_context.i2c_bytes[IOF_I2C_SUBADDRESS]);
@@ -486,15 +527,16 @@ void buttons_client_task (
             // --------------------------------------------------------------------------------
             case tmr when timerafter (time_ticks) :> void : {
 
-                display_pending_dark_e display_pending_dark = not_pending_dark; // AMUX=004 new. AMUX=005 local here
+                display_pending_dark_e display_pending_dark       = not_pending_dark; // AMUX=004 new. AMUX=005 local here
+                bool                   do_do_audiomux_and_display = false;
 
                 time_ticks += (XS1_TIMER_HZ/NUM_TIMEOUTS_PER_SECOND);
 
                 // HANDLE REPEAT AND SIMULATE BUTTONS
                 //
-                if ((buttons_context.buttons_action[IOF_BUTTON_LEFT]   == BUTTON_ACTION_PRESSED) or
-                    (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) or
-                    (buttons_context.buttons_action[IOF_BUTTON_RIGHT]  == BUTTON_ACTION_PRESSED))
+                if ((buttons_context.button_action[IOF_BUTTON_LEFT]   == BUTTON_ACTION_PRESSED) or
+                    (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) or
+                    (buttons_context.button_action[IOF_BUTTON_RIGHT]  == BUTTON_ACTION_PRESSED))
                 {
                     if (buttons_context.last_action == was_button) {
                         // no code. To keep pending_dark_from_long_left_button out of it, if
@@ -514,57 +556,58 @@ void buttons_client_task (
 
                     switch (display_context.display_screen_name) {
                         case SCREEN_VOLUME: { // Button pressed for som time (repeat) at timeout
-                            if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
+                            if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 audiomux_context.volume_dB = audiomux_context.volume_dB - (buttons_context.repeat.volume_step_factor * VOLUME_STEP_DB);
                                 buttons_context.button_action_taken = true;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                 audiomux_context.volume_dB = audiomux_context.volume_dB + (buttons_context.repeat.volume_step_factor * VOLUME_STEP_DB);
                                 buttons_context.button_action_taken = true;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
                         case SCREEN_BASS: { // Button pressed for som time (repeat) at timeouts
-                            if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
+                            if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 audiomux_context.bass_dB = audiomux_context.bass_dB - TONE_STEP_DB;
                                 buttons_context.button_action_taken = true;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                 audiomux_context.bass_dB = audiomux_context.bass_dB + TONE_STEP_DB;
                                 buttons_context.button_action_taken = true;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
                         case SCREEN_TREBLE: { // Button pressed for som time (repeat) at timeout
-                            if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
+                            if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 buttons_context.button_action_taken = true;
                                 audiomux_context.treble_dB = audiomux_context.treble_dB - TONE_STEP_DB;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                 audiomux_context.treble_dB = audiomux_context.treble_dB + TONE_STEP_DB;
                                 buttons_context.button_action_taken = true;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
                         case SCREEN_RESET: { // Button pressed for som time (repeat) at timeout
-                            if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
+                            if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 // Keep volume_dB
                                 audiomux_context.bass_dB   = audiomux_context.bass_dB   - TONE_STEP_DB; // AMUX=003
                                 audiomux_context.treble_dB = audiomux_context.treble_dB + TONE_STEP_DB; // AMUX=003
                                 buttons_context.button_action_taken = true;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                 // Keep volume_dB
                                 audiomux_context.bass_dB   = audiomux_context.bass_dB   + TONE_STEP_DB; // AMUX=003
                                 audiomux_context.treble_dB = audiomux_context.treble_dB - TONE_STEP_DB; // AMUX=003
                                 buttons_context.button_action_taken = true;
-                            } else if (buttons_context.buttons_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
+                            } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
                         case SCREEN_INPUT: // AMUX=008 now shares code with this:
+                        case SCREEN_BUTTONS:
                         case SCREEN_ABOUT: { // Button pressed for som time (repeat) at timeout
                             // No code, this also needs to time out into dark
-                            if (buttons_context.buttons_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
+                            if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
@@ -590,7 +633,7 @@ void buttons_client_task (
 
                     if (buttons_context.button_action_taken) {
                         display_context.screen_timeouts_since_last_button_countdown = NUM_TIMEOUTS_BEFORE_SCREEN_DARK; // timeout
-                        do_audiomux_and_display (audiomux_context, if_i2c_general_commands, display_context, buttons_context, log, if_i2c_internal_commands);
+                        do_do_audiomux_and_display = true;
                     } else {}
 
                 } else {
@@ -622,7 +665,7 @@ void buttons_client_task (
 
                         buttons_repeat_clear (buttons_context);
 
-                        do_audiomux_and_display (audiomux_context, if_i2c_general_commands, display_context, buttons_context, log, if_i2c_internal_commands);
+                        do_do_audiomux_and_display = true;
 
                         if (buttons_context.pressed_ever) {
                             // INTO DARK SCREEN
@@ -631,18 +674,23 @@ void buttons_client_task (
                         } else {} // No code, keep initial blinking until button pressed at least once
                     } else {}
                 }
+
+                if (do_do_audiomux_and_display) {
+                    do_audiomux_and_display (audiomux_context, if_i2c_general_commands, display_context, buttons_context, log, if_i2c_internal_commands);
+                } else {}
+
                 buttons_context.last_action = was_timeout;
             } break; // timerafter
 
             // --------------------------------------------------------------------------------
             // BUTTON PRESSES
             // --------------------------------------------------------------------------------
-            case i_buttons_in[int iof_button].button (const button_action_t button_action) : {
+            case i_buttons_in[int iof_button].button (const button_action_t button_action, const unsigned button_edge_cnt) : {
 
                 // HANDLE BUTTONS (button_states_t not needed)
 
-                const bool pressed_now      = (button_action == BUTTON_ACTION_PRESSED);
-                const bool released_now     = (button_action == BUTTON_ACTION_RELEASED);
+                const bool pressed_now  = (button_action == BUTTON_ACTION_PRESSED);
+                const bool released_now = (button_action == BUTTON_ACTION_RELEASED);
 
                 // Left button is taken on released_now since I can press and hold it and then the display goes to dark.
                 // And when it went to dark it has not shown a next screen first (it did show this phantom screen when I took ,
@@ -665,9 +713,15 @@ void buttons_client_task (
 
                 buttons_context.button_action_taken = false;
 
-                buttons_context.buttons_action[iof_button] = button_action;
+                buttons_context.button_action      [iof_button] = button_action;
+                buttons_context.button_edge_cnt    [iof_button] = button_edge_cnt; // Display_screen only when BUTTON_ACTION_PRESSED
+                buttons_context.button_edge_cnt_max[iof_button] = max (button_edge_cnt, buttons_context.button_edge_cnt_max[iof_button]); // BUTTON_ACTION_PRESSED or BUTTON_ACTION_RELEASED
 
-                log.cnt = do_print_log (log, buttons_context);
+                if (released_now and (display_context.display_screen_name == SCREEN_BUTTONS)) {
+                    Display_screen (display_context, audiomux_context, buttons_context, if_i2c_internal_commands);
+                } else {}
+
+                log.cnt = do_print_log (1, log, buttons_context);
 
                 if (left_button_filtered or other_buttons) {
 
@@ -685,9 +739,7 @@ void buttons_client_task (
                         const bool from_screen_dark = (display_context.display_screen_name == SCREEN_DARK);
 
                         if (from_screen_dark) {
-                            #if (TEST_DISPLAY_ON_CNT==1)
-                                display_context.display_on_cnt++;
-                            #endif
+                            display_context.display_on_cnt++;
                             display_context.display_screen_name = display_context.display_screen_name_when_into_dark;
                             // FROM DARK SCREEN. SAME AS PREVIOUS
                             if_softblinker.set_one_percent_ms (SOFTBLINK_LIT_DISPLAY_ONE_PERCENT_MS);
@@ -696,36 +748,36 @@ void buttons_client_task (
 
                         switch (display_context.display_screen_name) {
                             case SCREEN_VOLUME: { // Button press
-                                if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
+                                if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                     audiomux_context.volume_dB = VOLUME_MIN_DB; // "Minus" goes to muted
                                     audiomux_context.volume_buffer_gain_6_dB = false; // Since VOLUME_MIN_DB by repeat button takes too long
-                                } else if (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
+                                } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                     audiomux_context.volume_dB = VOLUME_MAX_DB; // "Plus" goes to fully on
                                 } else {
                                     allow_next_screen = true;
                                 }
                             } break;
                             case SCREEN_BASS: { // Button press
-                                if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
+                                if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                     audiomux_context.bass_dB = TONE_MIN_DB;
-                                } else if (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
+                                } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                     audiomux_context.bass_dB = TONE_MAX_DB; // "Plus" goes to fully on
                                 } else {
                                     allow_next_screen = true;
                                 }
                             } break;
                             case SCREEN_TREBLE: { // Button press
-                                if (buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
+                                if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                      audiomux_context.treble_dB = TONE_MIN_DB;
-                                 } else if (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
+                                 } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                      audiomux_context.treble_dB = TONE_MAX_DB;
                                  } else {
                                      allow_next_screen = true;
                                  }
                             } break;
                             case SCREEN_RESET: { // Button press
-                                if ((buttons_context.buttons_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) or
-                                    (buttons_context.buttons_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED)) {
+                                if ((buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) or
+                                    (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED)) {
 
                                     audiomux_context.volume_dB = 0;
                                     audiomux_context.bass_dB   = 0;
@@ -738,9 +790,8 @@ void buttons_client_task (
                                      allow_next_screen = true;
                                  }
                             } break;
-                            case SCREEN_INPUT: { // Button press
-                                allow_next_screen = true;
-                            } break;
+                            case SCREEN_INPUT:
+                            case SCREEN_BUTTONS:
                             case SCREEN_ABOUT: { // Button press
                                 allow_next_screen = true;
                             } break;

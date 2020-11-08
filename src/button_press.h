@@ -12,18 +12,21 @@ typedef enum {
     BUTTON_ACTION_VOID,
     BUTTON_ACTION_PRESSED,
     BUTTON_ACTION_PRESSED_FOR_LONG, // BUTTON_ACTION_PRESSED_FOR_LONG_TIMEOUT_MS
-    BUTTON_ACTION_RELEASED               // Not after BUTTON_ACTION_PRESSED_FOR_LONG
+    BUTTON_ACTION_RELEASED          // Not after BUTTON_ACTION_PRESSED_FOR_LONG
 } button_action_t;
+
+typedef enum {long_enabled, long_disabled} long_button_enabled_e;
 
 typedef interface button_if {
     // caused the potentially recursive call to cause error from the linker:
     // Error: Meta information. Error: lower bound could not be calculated (function is recursive?).
     //
     //[[guarded]] void button (const button_action_t button_action); // timerafter-driven
-    void button (const button_action_t button_action); // timerafter-driven
+    void button (const button_action_t button_action, const unsigned button_edge_cnt); // timerafter-driven
 
 } button_if;
 
+// If client has its own button REPEAT by holding button depressed, this should not be used
 #define BUTTON_ACTION_PRESSED_FOR_LONG_TIMEOUT_MS 20000 // 20 seconds. Max 2exp31 = 2147483648 = 21.47483648 seconds (not one less)
 
 #define IOF_BUTTON_LEFT   0
@@ -33,9 +36,9 @@ typedef interface button_if {
 #define BUTTONS_NUM_CLIENTS 3
 
 typedef struct {
-    bool pressed_now;           // Set by BUTTON_ACTION_PRESSED, cleared by BUTTON_ACTION_RELEASED
-    bool pressed_for_long;      // Set by BUTTON_ACTION_PRESSED_FOR_LONG, cleared by BUTTON_ACTION_RELEASED
-    bool inhibit_released_once; // Only IOF_BUTTON_RIGHT used, since it's the only that takes long pushes
+    bool pressed_now;
+    bool pressed_for_long;
+    bool inhibit_released_once;
 } button_states_t;
 
 [[combinable]]
@@ -43,6 +46,13 @@ void Button_Task (
         const unsigned     button_n,
         in buffered port:1 p_button,
         client button_if   i_button_out);
+
+[[combinable]]
+void Button_Task_2 (
+        const unsigned              button_n,
+        const long_button_enabled_e long_button_enabled,
+        in buffered port:1          p_button,
+        client button_if            i_button_out);
 
 #else
     #error Nested include BUTTON_PRESS_H_
