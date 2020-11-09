@@ -75,7 +75,6 @@ typedef struct {
     char                  display_ts1_chars [SSD1306_TS1_DISPLAY_VISIBLE_CHAR_LEN]; // 84 chars for display needs 85 char buffer (with NUL) when sprintf is use (use SSD1306_TS1_DISPLAY_ALL_CHAR_LEN for full flexibility)
     int                   sprintf_numchars;
     unsigned              screen_timeouts_since_last_button_countdown; // From NUM_TIMEOUTS_BEFORE_SCREEN_DARK to zero for SCREEN_DARK
-    unsigned              display_on_cnt;
 } display_context_t;
 
 // For set_one_percent_ms and set_sofblink_percentages
@@ -112,15 +111,23 @@ typedef struct {
 
 typedef enum {was_none, was_button, was_timeout} last_action_e;
 
+#define BUTTON_PARAMS_MAX_WRAP_VAL_99999  99999 // Wraps at 99999, for SCREEN_BUTTONS display space only
+#define BUTTON_PARAMS_MAX_VAL_999           999 // Greater than 999 becomes 999, for SCREEN_BUTTONS display space only
+
 typedef struct {
-    bool              pressed_ever;
-    bool              button_action_taken;
-    button_action_t   button_action       [BUTTONS_NUM_CLIENTS];
-    unsigned          button_edge_cnt     [BUTTONS_NUM_CLIENTS];
-    unsigned          button_edge_cnt_max [BUTTONS_NUM_CLIENTS]; // No function to ever clear it!
-    repeat_t          repeat;
-    last_action_e     last_action; // AMUX=005
-    bool              ignore_left_button_release_no_wake_from_dark; // AMUX=006 new. Since I started with LEFT_BUTTON take on released
+    bool            pressed_ever;
+    bool            button_action_taken;
+    button_action_t button_action [BUTTONS_NUM_CLIENTS];
+    repeat_t        repeat;
+    last_action_e   last_action; // AMUX=005
+    bool            ignore_left_button_release_no_wake_from_dark; // AMUX=006 new. Since I started with LEFT_BUTTON take on released
+    //
+    // FOR SCREEN_BUTTONS buttons debug/research screen
+    unsigned button_pressed_now_cnt  [BUTTONS_NUM_CLIENTS];
+    unsigned button_released_now_cnt [BUTTONS_NUM_CLIENTS];
+    unsigned button_edge_cnt         [BUTTONS_NUM_CLIENTS];
+    unsigned button_edge_cnt_max     [BUTTONS_NUM_CLIENTS]; // No function to ever clear it!
+
 } buttons_context_t;
 
 typedef struct {
@@ -272,27 +279,29 @@ bool // i2c_ok
                 i2c_ok = writeToDisplay_i2c_all_buffer(if_i2c_internal_commands);
                 delay_milliseconds (10);
 
-                const char char_AA_str[] = CHAR_AA_STR; // Å
                 const char char_aa_str[] = CHAR_aa_STR; // å
-                const char char_OE_str[] = CHAR_OE_STR; // Ø
                 setTextSize(1); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
 
+                // BUTTON_PARAMS_MAX_WRAP_VAL_99999  99999 // Wraps at 99999, for SCREEN_BUTTONS display space only
+                // BUTTON_PARAMS_MAX_VAL_999           999 // Greater than 999 becomes 999, for SCREEN_BUTTONS display space only
                 display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
-                        "DISPLAY P%s %u\nKNAPPST%sY n%s,MAX\n%u:%u\n    %u:%u  %u:%u",
-                        char_AA_str, // PÅ
-                        display_context.display_on_cnt,
-                        char_OE_str, char_aa_str, // STØY nå
-                        buttons_context.button_edge_cnt[IOF_BUTTON_LEFT],   buttons_context.button_edge_cnt_max[IOF_BUTTON_LEFT],
-                        buttons_context.button_edge_cnt[IOF_BUTTON_CENTER], buttons_context.button_edge_cnt_max[IOF_BUTTON_CENTER],
-                        buttons_context.button_edge_cnt[IOF_BUTTON_RIGHT],  buttons_context.button_edge_cnt_max[IOF_BUTTON_RIGHT]);
+                        "  INN    UT  n%s MAX\n%5u %5u %3u %3u\n%5u %5u %3u %3u\n%5u %5u %3u %3u",
+                        char_aa_str,
+                        buttons_context.button_pressed_now_cnt [IOF_BUTTON_LEFT],   buttons_context.button_released_now_cnt [IOF_BUTTON_LEFT],
+                        buttons_context.button_edge_cnt        [IOF_BUTTON_LEFT],   buttons_context.button_edge_cnt_max     [IOF_BUTTON_LEFT],
+                        buttons_context.button_pressed_now_cnt [IOF_BUTTON_CENTER], buttons_context.button_released_now_cnt [IOF_BUTTON_CENTER],
+                        buttons_context.button_edge_cnt        [IOF_BUTTON_CENTER], buttons_context.button_edge_cnt_max     [IOF_BUTTON_CENTER],
+                        buttons_context.button_pressed_now_cnt [IOF_BUTTON_RIGHT],  buttons_context.button_released_now_cnt [IOF_BUTTON_RIGHT],
+                        buttons_context.button_edge_cnt        [IOF_BUTTON_RIGHT],  buttons_context.button_edge_cnt_max     [IOF_BUTTON_RIGHT]);
 
                 // Observe "nå" (NOW) means for BUTTON_ACTION_PRESSED since that's when this function is acelled,
                 // but "MAX" for both BUTTON_ACTION_PRESSED and BUTTON_ACTION_RELEASED. That's why small and capital letters of "nå,MAX"
                 //
-                //                                            DISPLAY PÅ 8
-                //                                            KNAPPSTØY nå:MAX
-                //                                            1:6
-                //                                                2:3  1:5
+                //                                            -------------------
+                //                                              INN    UT  nå MAX
+                //                                            23455 34555   2  12
+                //                                               23   456   1   5
+                //                                               45   345   2   4
             } break;
             case SCREEN_ABOUT: {
                 const char char_OE_str[]          = CHAR_OE_STR; // Ø
@@ -350,14 +359,15 @@ void display_context_init (display_context_t &display_context) {
     display_context.display_screen_name                         = SCREEN_VOLUME;
     display_context.state                                       = is_on;
     display_context.screen_timeouts_since_last_button_countdown = NUM_TIMEOUTS_BEFORE_SCREEN_DARK;
-    display_context.display_on_cnt                              = 0;
 }
 
 void button_edge_cnt_init (buttons_context_t &buttons_context) {
 
     for (int iof_button = 0; iof_button < BUTTONS_NUM_CLIENTS; iof_button++) {
-       buttons_context.button_edge_cnt    [iof_button] = 0;
-       buttons_context.button_edge_cnt_max[iof_button] = 0;
+       buttons_context.button_edge_cnt         [iof_button] = 0;
+       buttons_context.button_edge_cnt_max     [iof_button] = 0;
+       buttons_context.button_pressed_now_cnt  [iof_button] = 0;
+       buttons_context.button_released_now_cnt [iof_button] = 0;
     }
 }
 
@@ -451,6 +461,11 @@ typedef enum {
     pending_dark_from_long_left_button,
     pending_dark_only
 } display_pending_dark_e; // AMUX=004 new
+
+void set_softblink_as_display_on (client softblinker_if if_softblinker) {
+    if_softblinker.set_one_percent_ms (SOFTBLINK_LIT_DISPLAY_ONE_PERCENT_MS);
+    if_softblinker.set_sofblink_percentages (SOFTBLINK_LIT_DISPLAY_MAX_PERCENTAGE, SOFTBLINK_LIT_DISPLAY_MIN_PERCENTAGE);
+}
 
 // ---
 // client_task
@@ -702,6 +717,8 @@ void buttons_client_task (
                 const bool left_button   = released_now and  (iof_button==IOF_BUTTON_LEFT);
                 const bool other_buttons = pressed_now  and ((iof_button==IOF_BUTTON_CENTER) or (iof_button==IOF_BUTTON_RIGHT));
 
+                bool screen_dark_on_button = (display_context.display_screen_name == SCREEN_DARK);
+
                 bool left_button_filtered;
 
                 if (left_button and buttons_context.ignore_left_button_release_no_wake_from_dark) {
@@ -713,13 +730,25 @@ void buttons_client_task (
 
                 buttons_context.button_action_taken = false;
 
-                buttons_context.button_action      [iof_button] = button_action;
-                buttons_context.button_edge_cnt    [iof_button] = button_edge_cnt; // Display_screen only when BUTTON_ACTION_PRESSED
-                buttons_context.button_edge_cnt_max[iof_button] = max (button_edge_cnt, buttons_context.button_edge_cnt_max[iof_button]); // BUTTON_ACTION_PRESSED or BUTTON_ACTION_RELEASED
+                buttons_context.button_action [iof_button] = button_action;
+
+                // Handle values for the button edge debug monitor SCREEN_BUTTONS
+
+                buttons_context.button_edge_cnt     [iof_button] = in_range_unsigned (     button_edge_cnt,                                                   0, BUTTON_PARAMS_MAX_VAL_999); // Display_screen only when BUTTON_ACTION_PRESSED
+                buttons_context.button_edge_cnt_max [iof_button] = in_range_unsigned (max (button_edge_cnt, buttons_context.button_edge_cnt_max[iof_button]), 0, BUTTON_PARAMS_MAX_VAL_999); // BUTTON_ACTION_PRESSED or BUTTON_ACTION_RELEASED
+
+                if (pressed_now) {
+                    buttons_context.button_pressed_now_cnt [iof_button]  = (buttons_context.button_pressed_now_cnt [iof_button]  + 1) % (BUTTON_PARAMS_MAX_WRAP_VAL_99999+1);
+                } else if (released_now) {
+                    buttons_context.button_released_now_cnt [iof_button] = (buttons_context.button_released_now_cnt [iof_button] + 1) % (BUTTON_PARAMS_MAX_WRAP_VAL_99999+1);
+                } else {} // Not possible
 
                 if (released_now and (display_context.display_screen_name == SCREEN_BUTTONS)) {
+                    // Special case for the button edge debug monitor SCREEN_BUTTONS
                     Display_screen (display_context, audiomux_context, buttons_context, if_i2c_internal_commands);
                 } else {}
+
+                // Go on with the "real" code
 
                 log.cnt = do_print_log (1, log, buttons_context);
 
@@ -727,23 +756,18 @@ void buttons_client_task (
 
                     if (not buttons_context.pressed_ever) {
                         buttons_context.pressed_ever = true;
-                        // FIRST BUTTON PRESS AFTER STARTUP. SAME AS NEXT
-                        if_softblinker.set_one_percent_ms (SOFTBLINK_LIT_DISPLAY_ONE_PERCENT_MS);
-                        if_softblinker.set_sofblink_percentages (SOFTBLINK_LIT_DISPLAY_MAX_PERCENTAGE, SOFTBLINK_LIT_DISPLAY_MIN_PERCENTAGE);
+                        // FIRST BUTTON PRESS AFTER STARTUP. SAME AS JUST ABOVE HERE AND BELOW
+                        set_softblink_as_display_on (if_softblinker);
                     } else {}
 
                     if (left_button_filtered) {
 
                         bool allow_next_screen = false;
 
-                        const bool from_screen_dark = (display_context.display_screen_name == SCREEN_DARK);
-
-                        if (from_screen_dark) {
-                            display_context.display_on_cnt++;
+                        if (screen_dark_on_button) {
                             display_context.display_screen_name = display_context.display_screen_name_when_into_dark;
-                            // FROM DARK SCREEN. SAME AS PREVIOUS
-                            if_softblinker.set_one_percent_ms (SOFTBLINK_LIT_DISPLAY_ONE_PERCENT_MS);
-                            if_softblinker.set_sofblink_percentages (SOFTBLINK_LIT_DISPLAY_MAX_PERCENTAGE, SOFTBLINK_LIT_DISPLAY_MIN_PERCENTAGE);
+                            // FROM DARK SCREEN, GENERALA CASE
+                            set_softblink_as_display_on (if_softblinker);
                         } else {}
 
                         switch (display_context.display_screen_name) {
@@ -798,7 +822,7 @@ void buttons_client_task (
                             default: {} break;
                         }
 
-                        if ((allow_next_screen) and (not from_screen_dark)) {
+                        if ((allow_next_screen) and (not screen_dark_on_button)) {
                             display_context.display_screen_name = (display_context.display_screen_name + 1) % SCREEN_DARK;
                         } else {}
 

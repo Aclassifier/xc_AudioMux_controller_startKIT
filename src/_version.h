@@ -12,9 +12,10 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.1.05" // x.y.zz
-#define AUDIOMUX_VERSION_NUM    1105
+#define AUDIOMUX_VERSION_STR "1.1.06" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1106
 //
+// 1106     08Nov2020           Some more advanced "logging" of SCREEN_BUTTONS.
 // 1105     07Nov2020 AMUX=009  Rewrote Button_Task to Button_Task_2 to withstand not only debounce, but also EMC (assumed to always be leaving line high BUTTON_RELEASED after EMC)
 //                              USE_BUTTON_TASK_NUM = 2
 //                              TEST_DISPLAY_ON_CNT removed, made standard with SCREEN_BUTTONS
