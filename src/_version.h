@@ -12,10 +12,12 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.1.06" // x.y.zz
-#define AUDIOMUX_VERSION_NUM    1106
+#define AUDIOMUX_VERSION_STR "1.1.07" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1107
 //
-// 1106     08Nov2020           Some more advanced "logging" of SCREEN_BUTTONS.
+// 1107     23Nov2020 AMUX=010  new. Button_Task_3 is new, with button_noisy_time_us measured. SCREEN_BUTTONS modified
+// 1106     09Nov2020           Some more advanced "logging" of SCREEN_BUTTONS. Also screened the cables from the buttons (and display) in one cable
+//                              I noticed button_edge_cnt_max only happened on IOF_BUTTON_LEFT (14), but the other buttons never seemed to pick up any EMC(?)
 // 1105     07Nov2020 AMUX=009  Rewrote Button_Task to Button_Task_2 to withstand not only debounce, but also EMC (assumed to always be leaving line high BUTTON_RELEASED after EMC)
 //                              USE_BUTTON_TASK_NUM = 2
 //                              TEST_DISPLAY_ON_CNT removed, made standard with SCREEN_BUTTONS

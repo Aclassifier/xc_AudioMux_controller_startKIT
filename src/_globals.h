@@ -86,7 +86,16 @@
     #endif
 #endif
 
-#define USE_BUTTON_TASK_NUM    2
+#define USE_BUTTON_TASK_NUM 3 // 1 uses Button_Task_1
+                              // 2 uses Button_Task_2
+                              // 3 uses Button_Task_3
+#if (USE_BUTTON_TASK_NUM==1)
+    #define button_if_gen button_if_1
+#elif (USE_BUTTON_TASK_NUM==2)
+    #define button_if_gen button_if_2
+#elif (USE_BUTTON_TASK_NUM==3)
+    #define button_if_gen button_if_3
+#endif
 
 #define DEBUG_PRINT_GLOBAL_APP 0 // 0: all printf off
                                  // 1: controlled locally in each xc file. Unit must be connected to xTIMEcomposer. Not for off-line battery usage!

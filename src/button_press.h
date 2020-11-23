@@ -17,14 +17,30 @@ typedef enum {
 
 typedef enum {long_enabled, long_disabled} long_button_enabled_e;
 
-typedef interface button_if {
+typedef interface button_if_1 {
+    // caused the potentially recursive call to cause error from the linker:
+    // Error: Meta information. Error: lower bound could not be calculated (function is recursive?).
+    //
+    void button (const button_action_t button_action); // timerafter-driven
+
+} button_if_1;
+
+typedef interface button_if_2 {
+    // caused the potentially recursive call to cause error from the linker:
+    // Error: Meta information. Error: lower bound could not be calculated (function is recursive?).
+    //
+    void button (const button_action_t button_action, const unsigned button_edge_cnt); // timerafter-driven
+
+} button_if_2;
+
+typedef interface button_if_3 {
     // caused the potentially recursive call to cause error from the linker:
     // Error: Meta information. Error: lower bound could not be calculated (function is recursive?).
     //
     //[[guarded]] void button (const button_action_t button_action); // timerafter-driven
-    void button (const button_action_t button_action, const unsigned button_edge_cnt); // timerafter-driven
+    void button (const button_action_t button_action, const unsigned button_edge_cnt, const unsigned button_noisy_time_us); // timerafter-driven
 
-} button_if;
+} button_if_3;
 
 // If client has its own button REPEAT by holding button depressed, this should not be used
 #define BUTTON_ACTION_PRESSED_FOR_LONG_TIMEOUT_MS 20000 // 20 seconds. Max 2exp31 = 2147483648 = 21.47483648 seconds (not one less)
@@ -42,17 +58,24 @@ typedef struct {
 } button_states_t;
 
 [[combinable]]
-void Button_Task (
+void Button_Task_1 (
         const unsigned     button_n,
         in buffered port:1 p_button,
-        client button_if   i_button_out);
+        client button_if_1 i_button_out);
 
 [[combinable]]
 void Button_Task_2 (
         const unsigned              button_n,
         const long_button_enabled_e long_button_enabled,
         in buffered port:1          p_button,
-        client button_if            i_button_out);
+        client button_if_2          i_button_out); // const unsigned button_edge_cnt added
+
+[[combinable]]
+void Button_Task_3 (
+        const unsigned              button_n,
+        const long_button_enabled_e long_button_enabled,
+        in buffered port:1          p_button,
+        client button_if_3          i_button_out); // const unsigned button_noisy_time_us added
 
 #else
     #error Nested include BUTTON_PRESS_H_

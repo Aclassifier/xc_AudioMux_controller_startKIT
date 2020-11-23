@@ -111,8 +111,11 @@ typedef struct {
 
 typedef enum {was_none, was_button, was_timeout} last_action_e;
 
-#define BUTTON_PARAMS_MAX_WRAP_VAL_99999  99999 // Wraps at 99999, for SCREEN_BUTTONS display space only
-#define BUTTON_PARAMS_MAX_VAL_999           999 // Greater than 999 becomes 999, for SCREEN_BUTTONS display space only
+#define BUTTON_PARAMS_MAX_VAL_99999   99999 // Greater than 99999 becomes 99999, for SCREEN_BUTTONS display space only
+#define BUTTON_PARAMS_MAX_VAL_999       999 // Greater than 999 becomes 999, for SCREEN_BUTTONS display space only
+#define BUTTON_PARAMS_MAX_VAL_99         99 // Greater than 99 becomes 99, for SCREEN_BUTTONS display space only
+#define BUTTON_PARAMS_MAX_WRAP_VAL_99    99 // Wraps at 99, for SCREEN_BUTTONS display space only
+
 
 typedef struct {
     bool            pressed_ever;
@@ -123,10 +126,11 @@ typedef struct {
     bool            ignore_left_button_release_no_wake_from_dark; // AMUX=006 new. Since I started with LEFT_BUTTON take on released
     //
     // FOR SCREEN_BUTTONS buttons debug/research screen
-    unsigned button_pressed_now_cnt  [BUTTONS_NUM_CLIENTS];
-    unsigned button_released_now_cnt [BUTTONS_NUM_CLIENTS];
-    unsigned button_edge_cnt         [BUTTONS_NUM_CLIENTS];
-    unsigned button_edge_cnt_max     [BUTTONS_NUM_CLIENTS]; // No function to ever clear it!
+    unsigned button_pressed_now_cnt   [BUTTONS_NUM_CLIENTS];
+    unsigned button_released_now_cnt  [BUTTONS_NUM_CLIENTS];
+    unsigned button_edge_cnt          [BUTTONS_NUM_CLIENTS];
+    unsigned button_edge_cnt_max      [BUTTONS_NUM_CLIENTS]; // No function to ever clear it!
+    unsigned button_noisy_time_us_max [BUTTONS_NUM_CLIENTS];
 
 } buttons_context_t;
 
@@ -189,7 +193,7 @@ void do_display_params_zero ( display_context_t &display_context) {
 
     setTextColor(WHITE);
     setCursor(0,0);
-    setTextSize(1); // SSD1306_TS1_DISPLAY_VISIBLE_CHAR_NUM gives 21 chars per line
+    setTextSize(1); // SSD1306_TS1_LINE_CHAR_NUM gives 21 chars per line (but crlf takes two, if used)
 }
 
 // MUST NOT MODIFY ANY STATE VALUES!
@@ -280,34 +284,47 @@ bool // i2c_ok
                 delay_milliseconds (10);
 
                 const char char_aa_str[] = CHAR_aa_STR; // å
-                setTextSize(1); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
+                setTextSize(1); // SSD1306_TS1_LINE_CHAR_NUM gives 21 chars per line (but crlf takes two, if used)
 
-                // BUTTON_PARAMS_MAX_WRAP_VAL_99999  99999 // Wraps at 99999, for SCREEN_BUTTONS display space only
-                // BUTTON_PARAMS_MAX_VAL_999           999 // Greater than 999 becomes 999, for SCREEN_BUTTONS display space only
+                // BUTTON_PARAMS_MAX_VAL_99999   99999 // %5u
+                // BUTTON_PARAMS_MAX_VAL_999       999 // %3u
+                // BUTTON_PARAMS_MAX_WRAP_VAL_99    99 // %2u
+                // BUTTON_PARAMS_MAX_VAL_999        99 // %2u
                 display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
-                        "  INN    UT  n%s MAX\n%5u %5u %3u %3u\n%5u %5u %3u %3u\n%5u %5u %3u %3u",
+                        "INN UT  n%s Max usMax\n %2u %2u %3u %3u %5u\n %2u %2u %3u %3u %5u\n %2u %2u %3u %3u %5u",
                         char_aa_str,
-                        buttons_context.button_pressed_now_cnt [IOF_BUTTON_LEFT],   buttons_context.button_released_now_cnt [IOF_BUTTON_LEFT],
-                        buttons_context.button_edge_cnt        [IOF_BUTTON_LEFT],   buttons_context.button_edge_cnt_max     [IOF_BUTTON_LEFT],
-                        buttons_context.button_pressed_now_cnt [IOF_BUTTON_CENTER], buttons_context.button_released_now_cnt [IOF_BUTTON_CENTER],
-                        buttons_context.button_edge_cnt        [IOF_BUTTON_CENTER], buttons_context.button_edge_cnt_max     [IOF_BUTTON_CENTER],
-                        buttons_context.button_pressed_now_cnt [IOF_BUTTON_RIGHT],  buttons_context.button_released_now_cnt [IOF_BUTTON_RIGHT],
-                        buttons_context.button_edge_cnt        [IOF_BUTTON_RIGHT],  buttons_context.button_edge_cnt_max     [IOF_BUTTON_RIGHT]);
+                        buttons_context.button_pressed_now_cnt   [IOF_BUTTON_LEFT],
+                        buttons_context.button_released_now_cnt  [IOF_BUTTON_LEFT],
+                        buttons_context.button_edge_cnt          [IOF_BUTTON_LEFT],
+                        buttons_context.button_edge_cnt_max      [IOF_BUTTON_LEFT],
+                        buttons_context.button_noisy_time_us_max [IOF_BUTTON_LEFT],
+                        buttons_context.button_pressed_now_cnt   [IOF_BUTTON_CENTER],
+                        buttons_context.button_released_now_cnt  [IOF_BUTTON_CENTER],
+                        buttons_context.button_edge_cnt          [IOF_BUTTON_CENTER],
+                        buttons_context.button_edge_cnt_max      [IOF_BUTTON_CENTER],
+                        buttons_context.button_noisy_time_us_max [IOF_BUTTON_CENTER],
+                        buttons_context.button_pressed_now_cnt   [IOF_BUTTON_RIGHT],
+                        buttons_context.button_released_now_cnt  [IOF_BUTTON_RIGHT],
+                        buttons_context.button_edge_cnt          [IOF_BUTTON_RIGHT],
+                        buttons_context.button_edge_cnt_max      [IOF_BUTTON_RIGHT],
+                        buttons_context.button_noisy_time_us_max [IOF_BUTTON_RIGHT]);
 
-                // Observe "nå" (NOW) means for BUTTON_ACTION_PRESSED since that's when this function is acelled,
-                // but "MAX" for both BUTTON_ACTION_PRESSED and BUTTON_ACTION_RELEASED. That's why small and capital letters of "nå,MAX"
-                //
-                //                                            -------------------
-                //                                              INN    UT  nå MAX
-                //                                            23455 34555   2  12
-                //                                               23   456   1   5
-                //                                               45   345   2   4
+                // Observe "nå" (NOW) means for BUTTON_ACTION_PRESSED since that's when this function is called,
+                // but "Max" for both BUTTON_ACTION_PRESSED and BUTTON_ACTION_RELEASED. That's why small and capital letter of "nå,Max"
+                // usMax also is a Max for both BUTTON_ACTION_PRESSED and BUTTON_ACTION_RELEASED
+                //                                            --------------------
+                //                                            INN UT  nå Max usMax
+                //                                             12 12   1  22   917 (IN and OUT may be seen not to have the same number.. if one press fast enough?)
+                //                                             34 34   1  44   975
+                //                                             73 73   3  12   952
+                //                                             99 99 999 999 99999 (max shown)
+                //                                             99 99 102 102  2915 (max seen)
             } break;
             case SCREEN_ABOUT: {
                 const char char_OE_str[]          = CHAR_OE_STR; // Ø
                 const char char_right_arrow_str[] = CHAR_RIGHT_ARROW_STR;
 
-                setTextSize(1); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
+                setTextSize(1); // SSD1306_TS1_LINE_CHAR_NUM gives 21 chars per line (but crlf takes two, if used)
 
                 display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
                                       "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG   %s BLOG 208",
@@ -364,10 +381,11 @@ void display_context_init (display_context_t &display_context) {
 void button_edge_cnt_init (buttons_context_t &buttons_context) {
 
     for (int iof_button = 0; iof_button < BUTTONS_NUM_CLIENTS; iof_button++) {
-       buttons_context.button_edge_cnt         [iof_button] = 0;
-       buttons_context.button_edge_cnt_max     [iof_button] = 0;
-       buttons_context.button_pressed_now_cnt  [iof_button] = 0;
-       buttons_context.button_released_now_cnt [iof_button] = 0;
+       buttons_context.button_edge_cnt          [iof_button] = 0;
+       buttons_context.button_edge_cnt_max      [iof_button] = 0;
+       buttons_context.button_pressed_now_cnt   [iof_button] = 0;
+       buttons_context.button_released_now_cnt  [iof_button] = 0;
+       buttons_context.button_noisy_time_us_max [iof_button] = 0;
     }
 }
 
@@ -480,7 +498,7 @@ void set_softblink_as_display_on (client softblinker_if if_softblinker) {
 void buttons_client_task (
         client i2c_internal_commands_if if_i2c_internal_commands,
         client i2c_general_commands_if  if_i2c_general_commands,
-        server button_if                i_buttons_in[BUTTONS_NUM_CLIENTS],
+        server button_if_gen            i_buttons_in[BUTTONS_NUM_CLIENTS],
         out port                        p_display_notReset,
         client softblinker_if           if_softblinker)
 {
@@ -700,7 +718,18 @@ void buttons_client_task (
             // --------------------------------------------------------------------------------
             // BUTTON PRESSES
             // --------------------------------------------------------------------------------
-            case i_buttons_in[int iof_button].button (const button_action_t button_action, const unsigned button_edge_cnt) : {
+
+            case
+                #if (USE_BUTTON_TASK_NUM==1)
+                    i_buttons_in[int iof_button].button (const button_action_t button_action) : {
+                        const unsigned button_edge_cnt = 0;
+                        const unsigned button_noisy_time_us   = 0;
+                #elif (USE_BUTTON_TASK_NUM==2)
+                    i_buttons_in[int iof_button].button (const button_action_t button_action, const unsigned button_edge_cnt) : {
+                        const unsigned button_noisy_time_us = 0;
+                #elif (USE_BUTTON_TASK_NUM==3)
+                    i_buttons_in[int iof_button].button (const button_action_t button_action, const unsigned button_edge_cnt, const unsigned button_noisy_time_us) : {
+                #endif
 
                 // HANDLE BUTTONS (button_states_t not needed)
 
@@ -734,13 +763,14 @@ void buttons_client_task (
 
                 // Handle values for the button edge debug monitor SCREEN_BUTTONS
 
-                buttons_context.button_edge_cnt     [iof_button] = in_range_unsigned (     button_edge_cnt,                                                   0, BUTTON_PARAMS_MAX_VAL_999); // Display_screen only when BUTTON_ACTION_PRESSED
-                buttons_context.button_edge_cnt_max [iof_button] = in_range_unsigned (max (button_edge_cnt, buttons_context.button_edge_cnt_max[iof_button]), 0, BUTTON_PARAMS_MAX_VAL_999); // BUTTON_ACTION_PRESSED or BUTTON_ACTION_RELEASED
+                buttons_context.button_edge_cnt          [iof_button] = in_range_unsigned (     button_edge_cnt,                                                             0, BUTTON_PARAMS_MAX_VAL_999);
+                buttons_context.button_edge_cnt_max      [iof_button] = in_range_unsigned (max (button_edge_cnt,      buttons_context.button_edge_cnt_max     [iof_button]), 0, BUTTON_PARAMS_MAX_VAL_999);
+                buttons_context.button_noisy_time_us_max [iof_button] = in_range_unsigned (max (button_noisy_time_us, buttons_context.button_noisy_time_us_max[iof_button]), 0, BUTTON_PARAMS_MAX_VAL_99999);
 
                 if (pressed_now) {
-                    buttons_context.button_pressed_now_cnt [iof_button]  = (buttons_context.button_pressed_now_cnt [iof_button]  + 1) % (BUTTON_PARAMS_MAX_WRAP_VAL_99999+1);
+                    buttons_context.button_pressed_now_cnt [iof_button]  = (buttons_context.button_pressed_now_cnt [iof_button]  + 1) % (BUTTON_PARAMS_MAX_WRAP_VAL_99+1);
                 } else if (released_now) {
-                    buttons_context.button_released_now_cnt [iof_button] = (buttons_context.button_released_now_cnt [iof_button] + 1) % (BUTTON_PARAMS_MAX_WRAP_VAL_99999+1);
+                    buttons_context.button_released_now_cnt [iof_button] = (buttons_context.button_released_now_cnt [iof_button] + 1) % (BUTTON_PARAMS_MAX_WRAP_VAL_99+1);
                 } else {} // Not possible
 
                 if (released_now and (display_context.display_screen_name == SCREEN_BUTTONS)) {

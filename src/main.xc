@@ -101,7 +101,7 @@
 
 int main() {
 
-    button_if                if_buttons[BUTTONS_NUM_CLIENTS];
+    button_if_gen            if_buttons[BUTTONS_NUM_CLIENTS];
     i2c_internal_commands_if if_i2c_internal_commands [I2C_INTERNAL_NUM_CLIENTS];
     i2c_general_commands_if  if_i2c_general_commands  [I2C_GENERAL_NUM_CLIENTS];
     i2c_master_if            if_i2c[I2C_HARDWARE_NUM_BUSES][I2C_HARDWARE_NUM_CLIENTS];
@@ -116,13 +116,17 @@ int main() {
                 buttons_client_task (if_i2c_internal_commands[0], if_i2c_general_commands[0], if_buttons, p_display_notReset, if_softblinker);
 
                 #if (USE_BUTTON_TASK_NUM==1)
-                    Button_Task (IOF_BUTTON_LEFT,   inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
-                    Button_Task (IOF_BUTTON_CENTER, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
-                    Button_Task (IOF_BUTTON_RIGHT,  inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
+                    Button_Task_1 (IOF_BUTTON_LEFT,   inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
+                    Button_Task_1 (IOF_BUTTON_CENTER, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
+                    Button_Task_1 (IOF_BUTTON_RIGHT,  inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
                 #elif (USE_BUTTON_TASK_NUM==2)
                     Button_Task_2 (IOF_BUTTON_LEFT,   long_enabled, inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
                     Button_Task_2 (IOF_BUTTON_CENTER, long_enabled, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
                     Button_Task_2 (IOF_BUTTON_RIGHT,  long_enabled, inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
+                #elif (USE_BUTTON_TASK_NUM==3)
+                    Button_Task_3 (IOF_BUTTON_LEFT,   long_enabled, inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
+                    Button_Task_3 (IOF_BUTTON_CENTER, long_enabled, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
+                    Button_Task_3 (IOF_BUTTON_RIGHT,  long_enabled, inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
                 #endif
 
 
