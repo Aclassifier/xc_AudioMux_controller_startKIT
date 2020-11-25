@@ -85,16 +85,20 @@
         #error not defined
     #endif
 #endif
-
-#define USE_BUTTON_TASK_NUM 3 // 1 uses Button_Task_1
-                              // 2 uses Button_Task_2
-                              // 3 uses Button_Task_3
+                              //                      25Nov2020
+#define USE_BUTTON_TASK_NUM 4 // 1 uses Button_Task_1 Constraints: C:8/4 T:10/4 C:32/7 M:25316 S:2824 C:19002 D:3490
+                              // 2 uses Button_Task_2 Constraints: C:8/4 T:10/4 C:32/7 M:25484 S:2888 C:19142 D:3486 +168
+                              // 3 uses Button_Task_3 Constraints: C:8/4 T:10/4 C:32/7 M:25620 S:2888 C:19246 D:3486 +136
+                              // 4 uses Button_Task_4 Constraints: C:8/4 T:10/4 C:32/7 M:25672 S:2896 C:19286 D:3490  +52
 #if (USE_BUTTON_TASK_NUM==1)
     #define button_if_gen button_if_1
 #elif (USE_BUTTON_TASK_NUM==2)
     #define button_if_gen button_if_2
 #elif (USE_BUTTON_TASK_NUM==3)
     #define button_if_gen button_if_3
+#elif (USE_BUTTON_TASK_NUM==4)
+    #define button_if_gen button_if_3 // same
+    #define MAX_BUTTON_NOISY_TIME_US 99999 // Almost 100000 = 100 ms
 #endif
 
 #define DEBUG_PRINT_GLOBAL_APP 0 // 0: all printf off

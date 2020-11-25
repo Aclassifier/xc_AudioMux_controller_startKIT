@@ -120,16 +120,18 @@ int main() {
                     Button_Task_1 (IOF_BUTTON_CENTER, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
                     Button_Task_1 (IOF_BUTTON_RIGHT,  inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
                 #elif (USE_BUTTON_TASK_NUM==2)
-                    Button_Task_2 (IOF_BUTTON_LEFT,   long_enabled, inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
-                    Button_Task_2 (IOF_BUTTON_CENTER, long_enabled, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
-                    Button_Task_2 (IOF_BUTTON_RIGHT,  long_enabled, inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
+                    Button_Task_2 (IOF_BUTTON_LEFT,   long_disabled, inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
+                    Button_Task_2 (IOF_BUTTON_CENTER, long_disabled, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
+                    Button_Task_2 (IOF_BUTTON_RIGHT,  long_disabled, inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
                 #elif (USE_BUTTON_TASK_NUM==3)
-                    Button_Task_3 (IOF_BUTTON_LEFT,   long_enabled, inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
-                    Button_Task_3 (IOF_BUTTON_CENTER, long_enabled, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
-                    Button_Task_3 (IOF_BUTTON_RIGHT,  long_enabled, inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
+                    Button_Task_3 (IOF_BUTTON_LEFT,   long_disabled, inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
+                    Button_Task_3 (IOF_BUTTON_CENTER, long_disabled, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
+                    Button_Task_3 (IOF_BUTTON_RIGHT,  long_disabled, inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
+                #elif (USE_BUTTON_TASK_NUM==4)
+                    Button_Task_4 (IOF_BUTTON_LEFT,   MAX_BUTTON_NOISY_TIME_US, long_disabled, inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
+                    Button_Task_4 (IOF_BUTTON_CENTER, MAX_BUTTON_NOISY_TIME_US, long_disabled, inP_button_center, if_buttons[IOF_BUTTON_CENTER]); // [[combinable]]
+                    Button_Task_4 (IOF_BUTTON_RIGHT,  MAX_BUTTON_NOISY_TIME_US, long_disabled, inP_button_right,  if_buttons[IOF_BUTTON_RIGHT]);  // [[combinable]]
                 #endif
-
-
             }
         }
 

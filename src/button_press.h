@@ -77,6 +77,14 @@ void Button_Task_3 (
         in buffered port:1          p_button,
         client button_if_3          i_button_out); // const unsigned button_noisy_time_us added
 
+[[combinable]]
+void Button_Task_4 (
+        const unsigned              button_n,
+        const unsigned              max_button_noisy_time_us, // added
+        const long_button_enabled_e long_button_enabled,
+        in buffered port:1          p_button,
+        client button_if_3          i_button_out);
+
 #else
     #error Nested include BUTTON_PRESS_H_
 #endif

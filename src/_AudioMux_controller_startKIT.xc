@@ -111,10 +111,15 @@ typedef struct {
 
 typedef enum {was_none, was_button, was_timeout} last_action_e;
 
-#define BUTTON_PARAMS_MAX_VAL_99999   99999 // Greater than 99999 becomes 99999, for SCREEN_BUTTONS display space only
-#define BUTTON_PARAMS_MAX_VAL_999       999 // Greater than 999 becomes 999, for SCREEN_BUTTONS display space only
-#define BUTTON_PARAMS_MAX_VAL_99         99 // Greater than 99 becomes 99, for SCREEN_BUTTONS display space only
-#define BUTTON_PARAMS_MAX_WRAP_VAL_99    99 // Wraps at 99, for SCREEN_BUTTONS display space only
+#ifdef MAX_BUTTON_NOISY_TIME_US
+    #define BUTTON_PARAMS_MAX_VAL_99999 MAX_BUTTON_NOISY_TIME_US
+#else
+    #define BUTTON_PARAMS_MAX_VAL_99999 99999 // Greater than 99999 becomes 99999, for SCREEN_BUTTONS display space only
+#endif
+
+#define BUTTON_PARAMS_MAX_VAL_999     999 // Greater than 999 becomes 999, for SCREEN_BUTTONS display space only
+#define BUTTON_PARAMS_MAX_VAL_99       99 // Greater than 99 becomes 99, for SCREEN_BUTTONS display space only
+#define BUTTON_PARAMS_MAX_WRAP_VAL_99  99 // Wraps at 99, for SCREEN_BUTTONS display space only
 
 
 typedef struct {
@@ -286,7 +291,7 @@ bool // i2c_ok
                 const char char_aa_str[] = CHAR_aa_STR; // å
                 setTextSize(1); // SSD1306_TS1_LINE_CHAR_NUM gives 21 chars per line (but crlf takes two, if used)
 
-                // BUTTON_PARAMS_MAX_VAL_99999   99999 // %5u
+                // BUTTON_PARAMS_MAX_VAL_99999   99999 // %5u also if value is MAX_BUTTON_NOISY_TIME_US
                 // BUTTON_PARAMS_MAX_VAL_999       999 // %3u
                 // BUTTON_PARAMS_MAX_WRAP_VAL_99    99 // %2u
                 // BUTTON_PARAMS_MAX_VAL_999        99 // %2u
@@ -727,11 +732,11 @@ void buttons_client_task (
                 #elif (USE_BUTTON_TASK_NUM==2)
                     i_buttons_in[int iof_button].button (const button_action_t button_action, const unsigned button_edge_cnt) : {
                         const unsigned button_noisy_time_us = 0;
-                #elif (USE_BUTTON_TASK_NUM==3)
+                #elif ((USE_BUTTON_TASK_NUM==3) or (USE_BUTTON_TASK_NUM==4))
                     i_buttons_in[int iof_button].button (const button_action_t button_action, const unsigned button_edge_cnt, const unsigned button_noisy_time_us) : {
                 #endif
 
-                // HANDLE BUTTONS (button_states_t not needed)
+                // HANDLE BUTTONS (button_states_t not needed) (BUTTON_ACTION_PRESSED_FOR_LONG not used)
 
                 const bool pressed_now  = (button_action == BUTTON_ACTION_PRESSED);
                 const bool released_now = (button_action == BUTTON_ACTION_RELEASED);

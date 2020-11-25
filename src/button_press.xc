@@ -265,3 +265,98 @@ void Button_Task_3 (
         }
     }
 }
+
+[[combinable]]
+void Button_Task_4 (
+        const unsigned              button_n,
+        const unsigned              max_button_noisy_time_us, // added
+        const long_button_enabled_e long_button_enabled,
+        in buffered port:1          p_button,
+        client button_if_3          i_button_out)
+{
+    int      button_on_event = BUTTON_PRESSED;
+    bool     do_timeout_debounce_now = false;
+    bool     do_timeout_long_now = false;
+    bool     filter_next_button_released = true; // This would come initially
+    timer    tmr_debounce; // Only one combined hardware timer..
+    timer    tmr_long;     // ..is used for these two software timers
+    time32_t timeout_debounce;
+    time32_t timeout_long;
+    time32_t current_time;
+    unsigned button_edge_cnt = 0;
+    time32_t noisy_start_time;
+    unsigned button_noisy_time_us = 0;
+    bool     noisy_start_measure = true; // AMUX=011 new
+    bool     max_time_reached = false;   // AMUX=011 new
+
+    debug_print("inP_Button_Task_3[%u] started\n", button_n);
+
+    while(1) {
+        select {
+            case (not max_time_reached) => p_button when pinsneq(button_on_event) :> button_on_event: {
+                do_timeout_debounce_now = true;
+                do_timeout_long_now     = false;
+                button_edge_cnt++;
+
+                tmr_debounce :> current_time;
+
+                if (noisy_start_measure) {
+                    noisy_start_measure = false;
+                    noisy_start_time = current_time;
+                } else {}
+
+                button_noisy_time_us = (current_time - noisy_start_time) / XS1_TIMER_MHZ; // DEBOUNCE_TIMEOUT_MS may start several times after this
+                max_time_reached = (button_noisy_time_us > max_button_noisy_time_us);
+
+                if (max_time_reached) {
+                    // Avoid forever picking up noise in the DEBOUNCE_TIMEOUT_MS "shadow"
+                    timeout_debounce = current_time; // immediately
+                } else {
+                    timeout_debounce = current_time + (DEBOUNCE_TIMEOUT_MS * XS1_TIMER_KHZ);
+                }
+            } break;
+
+            case do_timeout_debounce_now => tmr_debounce when timerafter(timeout_debounce) :> void: {
+
+                if (button_on_event == BUTTON_PRESSED) {
+                    debug_print(" BUTTON_ACTION_PRESSED %u send, cnt %u, noisy %u\n", button_n, button_edge_cnt, button_noisy_time_us);
+                    i_button_out.button (BUTTON_ACTION_PRESSED, button_edge_cnt, button_noisy_time_us); // Button down
+                    if (long_button_enabled == long_enabled) {
+                        do_timeout_long_now = true;
+                        tmr_long :> current_time;
+                        timeout_long = current_time + (BUTTON_ACTION_PRESSED_FOR_LONG_TIMEOUT_MS * XS1_TIMER_KHZ);
+                    } else {
+                        // long_disabled, no code
+                    }
+                } else if (filter_next_button_released) {
+                    // BUTTON_RELEASED, but we don't want it after BUTTON_ACTION_PRESSED_FOR_LONG, no code
+                    debug_print(" BUTTON_ACTION_RELEASED %u filtered\n", button_n);
+                } else { // BUTTON_RELEASED
+                    debug_print(" BUTTON_ACTION_RELEASED %u send, cnt %u, noisy %u\n", button_n, button_edge_cnt, button_noisy_time_us);
+                    i_button_out.button (BUTTON_ACTION_RELEASED, button_edge_cnt, button_noisy_time_us);
+                }
+
+                do_timeout_debounce_now     = false;
+                filter_next_button_released = false;
+                button_edge_cnt             = 0;
+                noisy_start_measure         = true;
+                max_time_reached            = false;
+            } break;
+
+            case do_timeout_long_now => tmr_long when timerafter(timeout_long) :> void: {
+                // It is important that during this waiting max_time_reached is false, so that a BUTTON_ACTION_PRESSED may cancel this waiting
+                do_timeout_long_now = false;
+                if (button_on_event == BUTTON_PRESSED) {
+                    debug_print(" BUTTON_ACTION_PRESSED_FOR_LONG %u send, cnt %u, noisy %u\n", button_n, button_edge_cnt, button_noisy_time_us);
+                    i_button_out.button (BUTTON_ACTION_PRESSED_FOR_LONG, button_edge_cnt, button_noisy_time_us);
+                    filter_next_button_released = true;
+                } else { // BUTTON_RELEASED
+                    // cannot happen here since do_timeout_long_now was set when BUTTON_PRESSED, no code
+                    debug_print(" BUTTON_ACTION_RELEASED_FOR_LONG %u NOT sent, cnt %u, noisy %u\n", button_n, button_edge_cnt, button_noisy_time_us);
+                }
+                button_edge_cnt = 0;
+                noisy_start_measure = true;
+            } break;
+        }
+    }
+}
