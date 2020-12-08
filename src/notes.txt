@@ -1,0 +1,24 @@
+Void P_Prefix (void)                  // extended ÒPrefixÓ 
+{
+  Prefix_CP_a CP = (Prefix_CP_a)g_CP; // get process Context from Scheduler
+  PROCTOR_PREFIX()                    // jump table (see Section 2)
+  ...  some initialisation
+  SET_EGGTIMER (CHAN_EGGTIMER, CP->LED_Timeout_Tick);
+  SET_REPTIMER (CHAN_REPTIMER, ADC_TIME_TICKS);
+  CHAN_OUT (CHAN_DATA_0, &CP->Data_0, sizeof(CP->Data_0));  // first output
+  while (TRUE)
+  {
+    ALT();                            // this is the needed ÓPRI_ALTÓ
+      ALT_EGGREPTIMER_IN  (CHAN_EGGTIMER);
+      ALT_EGGREPTIMER_IN  (CHAN_REPTIMER);
+      gALT_SIGNAL_CHAN_IN (CHAN_SIGNAL_AD_READY);
+      ALT_CHAN_IN         (CHAN_DATA_2, &CP->Data_2, sizeof (CP->Data_2));
+      ALT_ALTTIMER_IN     (CHAN_ALTTIMER, TIME_TICKS_100_MSECS);
+    gALT_END();
+    switch (g_ThisChannelId)
+    {
+      ...  process the guard that has been taken, e.g. CHAN_DATA_2
+      CHAN_OUT (CHAN_DATA_0, &CP->Data_0, sizeof (CP->Data_0));
+    };
+  }
+}

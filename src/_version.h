@@ -12,9 +12,10 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.1.08" // x.y.zz
-#define AUDIOMUX_VERSION_NUM    1108
+#define AUDIOMUX_VERSION_STR "1.1.09" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1109
 //
+// 1109     08dec2020           my_script.xta added
 // 1108     25Nov2020 AMUX=011  Button_Task_4 is new. Now also building with long_disabled
 //                              Button_Task_4 Constraints: C:8/4 T:10/4 C:32/7 M:25672 S:2896 C:19286 D:3490
 //                              i2c_master_async.xc:131:26: warning: argument 1 of `i2c_master_async_aux' slices interface preventing analysis of its parallel usage (the bound parameter is not `const') [-Wunusual-code]

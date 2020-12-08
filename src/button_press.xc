@@ -292,8 +292,11 @@ void Button_Task_4 (
     debug_print("inP_Button_Task_3[%u] started\n", button_n);
 
     while(1) {
+        // #pragma ordered // May be used if not [[combinable]] to assure priority of the PWM, if that is wanted
+        #pragma xta endpoint "start" // in "my_script.xta" script
         select {
             case (not max_time_reached) => p_button when pinsneq(button_on_event) :> button_on_event: {
+                #pragma xta endpoint "stop" // in "my_script.xta" script
                 do_timeout_debounce_now = true;
                 do_timeout_long_now     = false;
                 button_edge_cnt++;
@@ -387,7 +390,9 @@ void Button_Task_4_ (
     bool     noisy_start_measure = true; // AMUX=011 new
     bool     max_time_reached = false;   // AMUX=011 new
 
-    while(1) {
+    sync(p_button);
+
+    while (1) {
         select {
             case (not max_time_reached) => p_button when pinsneq(button_on_event) :> button_on_event: {
                 do_timeout_debounce_now = true;

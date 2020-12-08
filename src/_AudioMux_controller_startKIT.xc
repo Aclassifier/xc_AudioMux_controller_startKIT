@@ -91,7 +91,7 @@ typedef struct {
 #define SOFTBLINK_LIT_DISPLAY_MIN_PERCENTAGE     10
 
 #define NUM_TIMEOUTS_PER_SECOND     2
-#define NUM_TIMEOUTS_BEFORE_REPEAT (1.5 * NUM_TIMEOUTS_PER_SECOND)  // 1.5 seconds
+#define NUM_TIMEOUTS_BEFORE_REPEAT (1.5 * NUM_TIMEOUTS_PER_SECOND)  // 1,5 seconds
 //      BUTTON_ACTION_PRESSED_FOR_LONG_TIMEOUT_MS must be so long that it does not interfere here
 
 // From makefile
