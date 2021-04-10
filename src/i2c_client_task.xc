@@ -35,7 +35,7 @@
 #define DEBUG_PRINT_AUDIOMUX 0
 #define debug_print_audiomux(fmt, ...) do { if((DEBUG_PRINT_AUDIOMUX==1) and (DEBUG_PRINT_GLOBAL_APP==1)) printf(fmt, __VA_ARGS__); } while (0)
 
-// Internal i2c matters (not display matters)
+// Internal i2c matters
 [[combinable]]
 void I2C_Client_Task (
         server i2c_internal_commands_if if_i2c_internal_commands[I2C_INTERNAL_NUM_CLIENTS],
@@ -53,11 +53,12 @@ void I2C_Client_Task (
         select {
 
             case if_i2c_internal_commands[int index_of_client].write_display_ok (
-                    const i2c_hardware_iof_bus_t i2c_hardware_iof_bus,
-                    const i2c_dev_address_t      dev_addr,
-                    const i2c_reg_address_t      reg_addr,
-                    const i2c_uint8_t            data[], // SSD1306_WRITE_CHUNK_SIZE always is n:
-                    const unsigned               nbytes) -> bool ok: {
+                    const i2c_hardware_iof_bus_e   i2c_hardware_iof_bus,
+                    const i2c_display_iof_client_e i2c_iof_client,
+                    const i2c_dev_address_t        dev_addr,
+                    const i2c_reg_address_t        reg_addr,
+                    const i2c_uint8_t              data[], // SSD1306_WRITE_CHUNK_SIZE always is n:
+                    const unsigned                 nbytes) -> bool ok: {
 
                 #define SSD1306_WRITE_ARR_SIZE (LEN_I2C_SUBADDRESS + SSD1306_WRITE_CHUNK_SIZE)
 
@@ -89,7 +90,7 @@ void I2C_Client_Task (
                     int       send_stop_bit = 1;
                     i2c_res_t i2c_res;
 
-                    i2c_res= if_i2c[I2C_HARDWARE_IOF_DISPLAY][i2c_hardware_iof_bus].write ((uint8_t)dev_addr, write_data, (size_t) write_nbytes, num_bytes_sent, send_stop_bit);
+                    i2c_res= if_i2c[i2c_hardware_iof_bus][i2c_iof_client].write ((uint8_t)dev_addr, write_data, (size_t) write_nbytes, num_bytes_sent, send_stop_bit);
 
                     if ((i2c_res == I2C_NACK) or (num_bytes_sent != write_nbytes)) {
                         i2c_result = I2C_ERR;
@@ -111,10 +112,11 @@ void I2C_Client_Task (
             } break;
 
             case if_i2c_general_commands[int index_of_client].write_reg_ok (
-                    const i2c_hardware_iof_bus_t i2c_hardware_iof_bus,
-                    const i2c_dev_address_t      dev_addr,
-                    const i2c_uint8_t            i2c_bytes[], // reg_addr followed by data
-                    const static unsigned        nbytes
+                    const i2c_hardware_iof_bus_e    i2c_hardware_iof_bus,
+                    const i2c_audiomux_iof_client_e i2c_iof_client,
+                    const i2c_dev_address_t         dev_addr,
+                    const i2c_uint8_t               i2c_bytes[], // reg_addr followed by data
+                    const static unsigned           nbytes
                 ) -> bool ok: {
 
                 i2c_uint8_t write_data[nbytes];
@@ -128,7 +130,7 @@ void I2C_Client_Task (
                 int       send_stop_bit = 1;
                 i2c_res_t i2c_res;
 
-                i2c_res= if_i2c[I2C_HARDWARE_IOF_AUDIOMUX][i2c_hardware_iof_bus].write ((uint8_t)dev_addr, write_data, (size_t) nbytes, num_bytes_sent, send_stop_bit);
+                i2c_res= if_i2c[i2c_hardware_iof_bus][i2c_iof_client].write ((uint8_t)dev_addr, write_data, (size_t) nbytes, num_bytes_sent, send_stop_bit);
 
                 debug_print_audiomux("i2c_res=%u, sent=%u\n", i2c_res, num_bytes_sent);
 
@@ -141,15 +143,16 @@ void I2C_Client_Task (
             } break;
 
             case if_i2c_general_commands[int index_of_client].read_reg_ok (
-                    const i2c_hardware_iof_bus_t i2c_hardware_iof_bus,
-                    const i2c_dev_address_t      dev_addr,
-                    const unsigned char          reg_addr,
-                          uint8_t                &the_register
+                    const i2c_hardware_iof_bus_e   i2c_hardware_iof_bus,
+                    const i2c_audiomux_iof_client_e i2c_iof_client,
+                    const i2c_dev_address_t        dev_addr,
+                    const unsigned char            reg_addr,
+                          uint8_t                  &the_register
                 ) -> bool ok: {
 
                 // lib_i2c:
                 i2c_regop_res_t result;
-                the_register = if_i2c[I2C_HARDWARE_IOF_AUDIOMUX][i2c_hardware_iof_bus].read_reg (dev_addr, reg_addr, result); // First par is not if_i2c since "extends"
+                the_register = if_i2c[i2c_hardware_iof_bus][i2c_iof_client].read_reg (dev_addr, reg_addr, result); // First par is not if_i2c since "extends"
                 ok = (result == I2C_REGOP_SUCCESS);
 
             } break;

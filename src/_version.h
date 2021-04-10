@@ -12,9 +12,11 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.1.09" // x.y.zz
-#define AUDIOMUX_VERSION_NUM    1109
+#define AUDIOMUX_VERSION_STR "1.2.00" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1200
 //
+// 1200     10Apr2021 AMUX=012  Bass/treble etc. per input
+//                              Constraints: C:8/4 T:10/4 C:32/7 M:27364 S:3808 C:20066 D:3490
 // 1109     08dec2020           my_script.xta added
 // 1108     25Nov2020 AMUX=011  Button_Task_4 is new. Now also building with long_disabled
 //                              Button_Task_4 Constraints: C:8/4 T:10/4 C:32/7 M:25672 S:2896 C:19286 D:3490

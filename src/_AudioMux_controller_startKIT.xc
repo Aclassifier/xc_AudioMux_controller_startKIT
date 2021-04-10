@@ -104,9 +104,9 @@ typedef struct {
 
 
 typedef struct {
-    bool      now;
-    unsigned  timeouts_after_last_button_cnt;
-    unsigned  volume_step_factor; // increasing for every repeat taken, so that going to VOLUME_MIN_DB does not feel "endless"
+    bool     now;
+    unsigned timeouts_after_last_button_cnt;
+    unsigned volume_step_factor; // increasing for every repeat taken, so that going to VOLUME_MIN_DB does not feel "endless"
 } repeat_t;
 
 typedef enum {was_none, was_button, was_timeout} last_action_e;
@@ -145,15 +145,17 @@ typedef struct {
     bool              volume_buffer_gain_6_dB;
     tone_dB_t         bass_dB;
     tone_dB_t         treble_dB;
-    input_channel_t   input_channel; // AMUX=007 new
     bool              i2c_ok;
     unsigned          i2c_err_cnt;
-
                       // The idea with i2c_bytes is to keep the full register set as a copy here, and write out all even when a single bit is being changed
                       // Observe that TDA7468 cannot be read from
     i2c_uint8_t       i2c_bytes[LEN_I2C_TDA7468_MAX_BYTES]; // Not including device address i2c_dev_address_internal_e
-} audiomux_context_t;
+} audiomux_context_t; // Moved into amuxchan_context_t with AMUX=012
 
+typedef struct {
+    input_channel_t    input_channel; // AMUX=007 new
+    audiomux_context_t audiomux_context [INPUT_NUM];
+} amuxchan_context_t; // New with AMUX=012
 
 // ---
 // do_print_log
@@ -204,13 +206,15 @@ void do_display_params_zero ( display_context_t &display_context) {
 // MUST NOT MODIFY ANY STATE VALUES!
 bool // i2c_ok
     Display_screen (
-        display_context_t                 &display_context,
-        audiomux_context_t                &audiomux_context,
-        buttons_context_t                 &buttons_context,
-        client  i2c_internal_commands_if  if_i2c_internal_commands) {
+        display_context_t                &display_context,
+        buttons_context_t                &buttons_context,
+        amuxchan_context_t               &amuxchan_context,
+        client  i2c_internal_commands_if if_i2c_internal_commands) {
 
     bool i2c_ok = true;
     bool do_display_print = true;
+
+    const input_channel_t input_channel = amuxchan_context.input_channel;
 
     if (display_context.state == is_on) {
 
@@ -218,7 +222,7 @@ bool // i2c_ok
 
         switch (display_context.display_screen_name) {
             case SCREEN_VOLUME: {
-                if (audiomux_context.volume_buffer_gain_6_dB) {
+                if (amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB) {
                     // ADD "+6 dB" in small letters on the bottom line, to the right
                     setCursor(102,24); // 103 is too far. 24 on the last line, 25 one pixel below (ok) and 26 outside
                     display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "+6"); // Two cars, used in next setCursor
@@ -231,15 +235,15 @@ bool // i2c_ok
 
                 setCursor(0,0);
                 setTextSize(2); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
-                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "  VOLUM\n  %d dB", audiomux_context.volume_dB);
+                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "  VOLUM\n  %d dB", amuxchan_context.audiomux_context[input_channel].volume_dB);
             } break;
             case SCREEN_BASS: {
                 setTextSize(2); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
-                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "  BASS\n  %d dB", audiomux_context.bass_dB);
+                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "  BASS\n  %d dB", amuxchan_context.audiomux_context[input_channel].bass_dB);
             } break;
             case SCREEN_TREBLE: {
                 setTextSize(2); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
-                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "  DISKANT\n  %d dB", audiomux_context.treble_dB);
+                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "  DISKANT\n  %d dB", amuxchan_context.audiomux_context[input_channel].treble_dB);
             } break;
             case SCREEN_RESET: {
                 display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "VOLUM BASS DISKANT\n\n");
@@ -247,16 +251,16 @@ bool // i2c_ok
 
                 setTextSize(2); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
                 display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "%3d%3d%3d",
-                        audiomux_context.volume_dB,
-                        audiomux_context.bass_dB,
-                        audiomux_context.treble_dB);
+                        amuxchan_context.audiomux_context[input_channel].volume_dB,
+                        amuxchan_context.audiomux_context[input_channel].bass_dB,
+                        amuxchan_context.audiomux_context[input_channel].treble_dB);
             } break;
             case SCREEN_INPUT: {
 
                 setCursor(0,10);
                 setTextSize(2); // SSD1306_TS2_DISPLAY_VISIBLE_CHAR_NUM gives 10 chars per line
 
-                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "IN%d", audiomux_context.input_channel+1);
+                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars, "IN%d", amuxchan_context.input_channel+1);
 
                 // x,y=0,0 is left top and for SSD1306_128_32 x,y=127,31 is right bottom
                 #define X0         60
@@ -271,7 +275,7 @@ bool // i2c_ok
 
                 // IN1-IN4: circles with thin circumference, but filled for active IN:
                 for (unsigned ix=INPUT_MIN_DEFAULT; ix < INPUT_NUM; ix++) {
-                    if (ix == audiomux_context.input_channel) {
+                    if (ix == amuxchan_context.input_channel) {
                         fillCircle (x0[ix], y0[ix], RADIUS, WHITE);
                     } else {
                         drawCircle (x0[ix], y0[ix], RADIUS, WHITE);
@@ -410,67 +414,78 @@ void buttons_context_init (buttons_context_t &buttons_context) {
 }
 
 void do_audiomux_and_display (
-        audiomux_context_t                &audiomux_context,
-        client  i2c_general_commands_if   if_i2c_general_commands,
-        display_context_t                 &display_context,
-        buttons_context_t                 &buttons_context, // Mostly for do_print_log
-        log_t                             log,
-        client  i2c_internal_commands_if  if_i2c_internal_commands) {
+        client  i2c_general_commands_if  if_i2c_general_commands,
+        display_context_t                &display_context,
+        buttons_context_t                &buttons_context, // Mostly for do_print_log
+        amuxchan_context_t               &amuxchan_context,
+        log_t                            log,
+        client  i2c_internal_commands_if if_i2c_internal_commands) {
 
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] and_eq compl DATA_INPUT_SELECT_IN_1_4_MASK; // zero those bits only
+    const input_channel_t input_channel = amuxchan_context.input_channel;
+
+    amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] and_eq compl DATA_INPUT_SELECT_IN_1_4_MASK; // zero those bits only
     //
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] or_eq tda7468_make_input_channel(audiomux_context.input_channel); // fill those bits
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R2_SURROUND]             =     tda7468_make_surround     (audiomux_context.volume_buffer_gain_6_dB);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R3_VOLUME_LEFT]          =     tda7468_make_volume       (audiomux_context.volume_dB, audiomux_context.volume_dB_table);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R4_VOLUME_RIGHT]         =     tda7468_make_volume       (audiomux_context.volume_dB ,audiomux_context.volume_dB_table);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R5_TREBLE_AND_BASS]      =     tda7468_make_tone         (audiomux_context.bass_dB,   audiomux_context.treble_dB);
+    amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] or_eq tda7468_make_input_channel(amuxchan_context.input_channel); // fill those bits
+    amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R2_SURROUND]             =     tda7468_make_surround     (amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB);
+    amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R3_VOLUME_LEFT]          =     tda7468_make_volume       (amuxchan_context.audiomux_context[input_channel].volume_dB, amuxchan_context.audiomux_context[input_channel].volume_dB_table);
+    amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R4_VOLUME_RIGHT]         =     tda7468_make_volume       (amuxchan_context.audiomux_context[input_channel].volume_dB ,amuxchan_context.audiomux_context[input_channel].volume_dB_table);
+    amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R5_TREBLE_AND_BASS]      =     tda7468_make_tone         (amuxchan_context.audiomux_context[input_channel].bass_dB,   amuxchan_context.audiomux_context[input_channel].treble_dB);
 
-    Display_screen (display_context, audiomux_context, buttons_context, if_i2c_internal_commands);
+    Display_screen (display_context, buttons_context, amuxchan_context, if_i2c_internal_commands);
     do_print_log (0, log, buttons_context); // ingnoring return value to avoid more than one increment
 
-    audiomux_context.i2c_ok =
+    amuxchan_context.audiomux_context[input_channel].i2c_ok =
             if_i2c_general_commands.write_reg_ok (
+                    I2C_HARDWARE_IOF_AUDIOMUX,
                     I2C_AUDIOMUX_IOF_ICLIENT_0,
                     I2C_ADDRESS_OF_AUDIOMUX,
-                    audiomux_context.i2c_bytes,
+                    amuxchan_context.audiomux_context[input_channel].i2c_bytes,
                     LEN_I2C_TDA7468_MAX_BYTES);
 
-    if (audiomux_context.i2c_ok == false) { audiomux_context.i2c_err_cnt++; }
+    if (amuxchan_context.audiomux_context[input_channel].i2c_ok == false) { amuxchan_context.audiomux_context[input_channel].i2c_err_cnt++; }
 
-    debug_print ("Volume=%d dB, CMD=%02X ", audiomux_context.volume_dB, audiomux_context.i2c_bytes[IOF_I2C_SUBADDRESS]);
+    debug_print ("Volume=%d dB, CMD=%02X ", amuxchan_context.audiomux_context[input_channel].volume_dB, amuxchan_context.audiomux_context[input_channel].i2c_bytes[IOF_I2C_SUBADDRESS]);
 
     for (unsigned ix=LEN_I2C_SUBADDRESS; ix <LEN_I2C_TDA7468_MAX_BYTES; ix++) {
-        debug_print ("R%u=%02X ", ix-LEN_I2C_SUBADDRESS, audiomux_context.i2c_bytes[ix]);
+        debug_print ("R%u=%02X ", ix-LEN_I2C_SUBADDRESS, amuxchan_context.audiomux_context[input_channel].i2c_bytes[ix]);
     }
     debug_print ("%s", "\n");
 }
 
-void audiomux_context_init (audiomux_context_t &audiomux_context) {
+void audiomux_context_init (
+        amuxchan_context_t &amuxchan_context) {
 
-    volume_dB_table_t volume_dB_table = {VOLUME_SETTING_TABLE_INIT};
-    for (unsigned ix=0; ix<NUM_VOLUME_SETTINGS; ix++) {
-        audiomux_context.volume_dB_table[ix][IOF_VOLUME1_1DB_STEPS_TABLE] = volume_dB_table[ix][IOF_VOLUME1_1DB_STEPS_TABLE];
-        audiomux_context.volume_dB_table[ix][IOF_VOLUME1_8DB_STEPS_TABLE] = volume_dB_table[ix][IOF_VOLUME1_8DB_STEPS_TABLE];
-        audiomux_context.volume_dB_table[ix][IOF_VOLUME2_8DB_STEPS_TABLE] = volume_dB_table[ix][IOF_VOLUME2_8DB_STEPS_TABLE];
+    amuxchan_context.input_channel = INPUT_MIN_DEFAULT;
+
+    for (input_channel_t input_channel = INPUT_MIN_DEFAULT; input_channel < (INPUT_MIN_DEFAULT + INPUT_NUM); input_channel++) {
+
+        volume_dB_table_t volume_dB_table = {VOLUME_SETTING_TABLE_INIT};
+
+            for (unsigned ix=0; ix<NUM_VOLUME_SETTINGS; ix++) {
+                amuxchan_context.audiomux_context[input_channel].volume_dB_table[ix][IOF_VOLUME1_1DB_STEPS_TABLE] = volume_dB_table[ix][IOF_VOLUME1_1DB_STEPS_TABLE];
+                amuxchan_context.audiomux_context[input_channel].volume_dB_table[ix][IOF_VOLUME1_8DB_STEPS_TABLE] = volume_dB_table[ix][IOF_VOLUME1_8DB_STEPS_TABLE];
+                amuxchan_context.audiomux_context[input_channel].volume_dB_table[ix][IOF_VOLUME2_8DB_STEPS_TABLE] = volume_dB_table[ix][IOF_VOLUME2_8DB_STEPS_TABLE];
+            }
+
+            amuxchan_context.audiomux_context[input_channel].i2c_err_cnt             = 0;
+            amuxchan_context.audiomux_context[input_channel].volume_dB               = 0;
+            amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB = false;
+            amuxchan_context.audiomux_context[input_channel].bass_dB                 = 0;
+            amuxchan_context.audiomux_context[input_channel].treble_dB               = 0;
+            amuxchan_context.input_channel              = INPUT_MIN_DEFAULT;
+
+            // INIT THE 8 REGISTERS FOR THE AUDIOMUX
+
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[IOF_I2C_SUBADDRESS]                                 = TDA7468_R0_INPUT_SELECT_AND_MIC bitor TDA7468_REG_ADDR_AUTOINCREMENT_MASK;
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] = (tda7468_make_input_channel(amuxchan_context.input_channel) bitor DATA_INPUT_SELECT_MUTE_OFF_SOUND_ON_VAL bitor DATA_INPUT_SELECT_MIC_OFF_VAL);
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R1_INPUT_GAIN]           = DATA_INPUT_GAIN_00_DB_VAL; // Just hard-code this
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R2_SURROUND]             = tda7468_make_surround (amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB);
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R3_VOLUME_LEFT]          = tda7468_make_volume   (amuxchan_context.audiomux_context[input_channel].volume_dB, amuxchan_context.audiomux_context[input_channel].volume_dB_table);
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R4_VOLUME_RIGHT]         = tda7468_make_volume   (amuxchan_context.audiomux_context[input_channel].volume_dB, amuxchan_context.audiomux_context[input_channel].volume_dB_table);
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R5_TREBLE_AND_BASS]      = tda7468_make_tone     (amuxchan_context.audiomux_context[input_channel].bass_dB,   amuxchan_context.audiomux_context[input_channel].treble_dB);
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R7_OUTPUT_MUTE]          = DATA_OUTPUT_MUTE_OFF_SOUND_ON_VAL;
+            amuxchan_context.audiomux_context[input_channel].i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R7_BASS_ALC]             = 0; // Just hard-code this
     }
-    audiomux_context.i2c_err_cnt             = 0;
-    audiomux_context.volume_dB               = 0;
-    audiomux_context.volume_buffer_gain_6_dB = false;
-    audiomux_context.bass_dB                 = 0;
-    audiomux_context.treble_dB               = 0;
-    audiomux_context.input_channel           = INPUT_MIN_DEFAULT;
-
-    // INIT THE 8 REGISTERS FOR THE AUDIOMUX
-
-    audiomux_context.i2c_bytes[IOF_I2C_SUBADDRESS]                                 = TDA7468_R0_INPUT_SELECT_AND_MIC bitor TDA7468_REG_ADDR_AUTOINCREMENT_MASK;
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R0_INPUT_SELECT_AND_MIC] = (tda7468_make_input_channel(audiomux_context.input_channel) bitor DATA_INPUT_SELECT_MUTE_OFF_SOUND_ON_VAL bitor DATA_INPUT_SELECT_MIC_OFF_VAL);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R1_INPUT_GAIN]           = DATA_INPUT_GAIN_00_DB_VAL; // Just hard-code this
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R2_SURROUND]             = tda7468_make_surround (audiomux_context.volume_buffer_gain_6_dB);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R3_VOLUME_LEFT]          = tda7468_make_volume   (audiomux_context.volume_dB, audiomux_context.volume_dB_table);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R4_VOLUME_RIGHT]         = tda7468_make_volume   (audiomux_context.volume_dB, audiomux_context.volume_dB_table);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R5_TREBLE_AND_BASS]      = tda7468_make_tone     (audiomux_context.bass_dB,   audiomux_context.treble_dB);
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R7_OUTPUT_MUTE]          = DATA_OUTPUT_MUTE_OFF_SOUND_ON_VAL;
-    audiomux_context.i2c_bytes[LEN_I2C_SUBADDRESS+TDA7468_R7_BASS_ALC]             = 0; // Just hard-code this
 }
 
 void buttons_repeat_clear (buttons_context_t &buttons_context) {
@@ -507,11 +522,10 @@ void buttons_client_task (
         out port                        p_display_notReset,
         client softblinker_if           if_softblinker)
 {
-
-    display_context_t      display_context;
-    audiomux_context_t     audiomux_context;
-    buttons_context_t      buttons_context;
-    log_t                  log;
+    display_context_t  display_context;
+    buttons_context_t  buttons_context;
+    amuxchan_context_t amuxchan_context;
+    log_t              log;
 
     timer    tmr;
     time32_t time_ticks; // Ticks to 100 in 1 us
@@ -522,7 +536,7 @@ void buttons_client_task (
 
     log.cnt = 0;
 
-    audiomux_context_init (audiomux_context);
+    audiomux_context_init (amuxchan_context);
     buttons_context_init  (buttons_context);
     buttons_repeat_clear  (buttons_context);
     display_context_init  (display_context);
@@ -532,25 +546,26 @@ void buttons_client_task (
         Adafruit_GFX_constructor (SSD1306_LCDWIDTH, SSD1306_LCDHEIGHT);
         Adafruit_SSD1306_i2c_begin (if_i2c_internal_commands, p_display_notReset);
 
-        Display_screen (display_context, audiomux_context, buttons_context, if_i2c_internal_commands);
+        Display_screen (display_context, buttons_context, amuxchan_context, if_i2c_internal_commands);
     }
 
-    debug_print ("CMD=%02X ", audiomux_context.i2c_bytes[IOF_I2C_SUBADDRESS]);
+    debug_print ("CMD=%02X ", amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_bytes[IOF_I2C_SUBADDRESS]);
     for (unsigned ix=LEN_I2C_SUBADDRESS; ix <LEN_I2C_TDA7468_MAX_BYTES; ix++) {
-        debug_print ("R%u=%02X ", ix-LEN_I2C_SUBADDRESS, audiomux_context.i2c_bytes[ix]);
+        debug_print ("R%u=%02X ", ix-LEN_I2C_SUBADDRESS, amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_bytes[ix]);
     }
     debug_print ("%s", "\n");
 
-    audiomux_context.i2c_ok =
+    amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_ok =
             if_i2c_general_commands.write_reg_ok (
+                    I2C_HARDWARE_IOF_AUDIOMUX,
                     I2C_AUDIOMUX_IOF_ICLIENT_0,
                     I2C_ADDRESS_OF_AUDIOMUX,
-                    audiomux_context.i2c_bytes,
+                    amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_bytes,
                     LEN_I2C_TDA7468_MAX_BYTES);
 
-    if (audiomux_context.i2c_ok == false) { audiomux_context.i2c_err_cnt++; }
+    if (amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_ok == false) { amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_err_cnt++; }
 
-    debug_print ("ok = %u err_cnt = %u\n", audiomux_context.i2c_ok, audiomux_context.i2c_err_cnt);
+    debug_print ("ok = %u err_cnt = %u\n", amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_ok, amuxchan_context.audiomux_context[amuxchan_context.input_channel].i2c_err_cnt);
 
     debug_print ("%s", "client_task\n");
 
@@ -567,6 +582,7 @@ void buttons_client_task (
 
                 display_pending_dark_e display_pending_dark       = not_pending_dark; // AMUX=004 new. AMUX=005 local here
                 bool                   do_do_audiomux_and_display = false;
+                const input_channel_t  input_channel              = amuxchan_context.input_channel;
 
                 time_ticks += (XS1_TIMER_HZ/NUM_TIMEOUTS_PER_SECOND);
 
@@ -595,10 +611,10 @@ void buttons_client_task (
                     switch (display_context.display_screen_name) {
                         case SCREEN_VOLUME: { // Button pressed for som time (repeat) at timeout
                             if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
-                                audiomux_context.volume_dB = audiomux_context.volume_dB - (buttons_context.repeat.volume_step_factor * VOLUME_STEP_DB);
+                                amuxchan_context.audiomux_context[input_channel].volume_dB = amuxchan_context.audiomux_context[input_channel].volume_dB - (buttons_context.repeat.volume_step_factor * VOLUME_STEP_DB);
                                 buttons_context.button_action_taken = true;
                             } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
-                                audiomux_context.volume_dB = audiomux_context.volume_dB + (buttons_context.repeat.volume_step_factor * VOLUME_STEP_DB);
+                                amuxchan_context.audiomux_context[input_channel].volume_dB = amuxchan_context.audiomux_context[input_channel].volume_dB + (buttons_context.repeat.volume_step_factor * VOLUME_STEP_DB);
                                 buttons_context.button_action_taken = true;
                             } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
@@ -606,10 +622,10 @@ void buttons_client_task (
                         } break;
                         case SCREEN_BASS: { // Button pressed for som time (repeat) at timeouts
                             if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
-                                audiomux_context.bass_dB = audiomux_context.bass_dB - TONE_STEP_DB;
+                                amuxchan_context.audiomux_context[input_channel].bass_dB = amuxchan_context.audiomux_context[input_channel].bass_dB - TONE_STEP_DB;
                                 buttons_context.button_action_taken = true;
                             } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
-                                audiomux_context.bass_dB = audiomux_context.bass_dB + TONE_STEP_DB;
+                                amuxchan_context.audiomux_context[input_channel].bass_dB = amuxchan_context.audiomux_context[input_channel].bass_dB + TONE_STEP_DB;
                                 buttons_context.button_action_taken = true;
                             } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
@@ -618,24 +634,24 @@ void buttons_client_task (
                         case SCREEN_TREBLE: { // Button pressed for som time (repeat) at timeout
                             if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 buttons_context.button_action_taken = true;
-                                audiomux_context.treble_dB = audiomux_context.treble_dB - TONE_STEP_DB;
+                                amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB - TONE_STEP_DB;
                             } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
-                                audiomux_context.treble_dB = audiomux_context.treble_dB + TONE_STEP_DB;
+                                amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB + TONE_STEP_DB;
                                 buttons_context.button_action_taken = true;
                             } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
                             } else {}
                         } break;
-                        case SCREEN_RESET: { // Button pressed for som time (repeat) at timeout
+                        case SCREEN_RESET: { // Button pressed for some time (repeat) at timeout
                             if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
                                 // Keep volume_dB
-                                audiomux_context.bass_dB   = audiomux_context.bass_dB   - TONE_STEP_DB; // AMUX=003
-                                audiomux_context.treble_dB = audiomux_context.treble_dB + TONE_STEP_DB; // AMUX=003
+                                amuxchan_context.audiomux_context[input_channel].bass_dB   = amuxchan_context.audiomux_context[input_channel].bass_dB   - TONE_STEP_DB; // AMUX=003
+                                amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB + TONE_STEP_DB; // AMUX=003
                                 buttons_context.button_action_taken = true;
                             } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
                                 // Keep volume_dB
-                                audiomux_context.bass_dB   = audiomux_context.bass_dB   + TONE_STEP_DB; // AMUX=003
-                                audiomux_context.treble_dB = audiomux_context.treble_dB - TONE_STEP_DB; // AMUX=003
+                                amuxchan_context.audiomux_context[input_channel].bass_dB   = amuxchan_context.audiomux_context[input_channel].bass_dB   + TONE_STEP_DB; // AMUX=003
+                                amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB - TONE_STEP_DB; // AMUX=003
                                 buttons_context.button_action_taken = true;
                             } else if (buttons_context.button_action[IOF_BUTTON_LEFT] == BUTTON_ACTION_PRESSED) {
                                 display_pending_dark = pending_dark_from_long_left_button;
@@ -656,18 +672,18 @@ void buttons_client_task (
                         bool min_set;
                         bool max_set;
 
-                        {audiomux_context.volume_dB, min_set, max_set} = in_range_int8_min_max_set (audiomux_context.volume_dB, VOLUME_MIN_DB, VOLUME_MAX_DB);
+                        {amuxchan_context.audiomux_context[input_channel].volume_dB, min_set, max_set} = in_range_int8_min_max_set (amuxchan_context.audiomux_context[input_channel].volume_dB, VOLUME_MIN_DB, VOLUME_MAX_DB);
 
                         if (min_set) {
                             // No code. At first I thought this was smart, but it feels wrong after I introduced toggling on max_set
-                            // audiomux_context.volume_buffer_gain_6_dB = false;
+                            // amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB = false;
                         } else if (max_set) {
-                            audiomux_context.volume_buffer_gain_6_dB = not audiomux_context.volume_buffer_gain_6_dB; // Toggle it
+                            amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB = not amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB; // Toggle it
                         } else {}
                     }
 
-                    audiomux_context.bass_dB   = in_range_int8 (audiomux_context.bass_dB,   TONE_MIN_DB, TONE_MAX_DB);
-                    audiomux_context.treble_dB = in_range_int8 (audiomux_context.treble_dB, TONE_MIN_DB, TONE_MAX_DB);
+                    amuxchan_context.audiomux_context[input_channel].bass_dB   = in_range_int8 (amuxchan_context.audiomux_context[input_channel].bass_dB,   TONE_MIN_DB, TONE_MAX_DB);
+                    amuxchan_context.audiomux_context[input_channel].treble_dB = in_range_int8 (amuxchan_context.audiomux_context[input_channel].treble_dB, TONE_MIN_DB, TONE_MAX_DB);
 
                     if (buttons_context.button_action_taken) {
                         display_context.screen_timeouts_since_last_button_countdown = NUM_TIMEOUTS_BEFORE_SCREEN_DARK; // timeout
@@ -714,7 +730,7 @@ void buttons_client_task (
                 }
 
                 if (do_do_audiomux_and_display) {
-                    do_audiomux_and_display (audiomux_context, if_i2c_general_commands, display_context, buttons_context, log, if_i2c_internal_commands);
+                    do_audiomux_and_display (if_i2c_general_commands, display_context, buttons_context, amuxchan_context, log, if_i2c_internal_commands);
                 } else {}
 
                 buttons_context.last_action = was_timeout;
@@ -740,6 +756,8 @@ void buttons_client_task (
 
                 const bool pressed_now  = (button_action == BUTTON_ACTION_PRESSED);
                 const bool released_now = (button_action == BUTTON_ACTION_RELEASED);
+
+                input_channel_t input_channel = amuxchan_context.input_channel; // search for "aliasing" below
 
                 // Left button is taken on released_now since I can press and hold it and then the display goes to dark.
                 // And when it went to dark it has not shown a next screen first (it did show this phantom screen when I took ,
@@ -780,7 +798,7 @@ void buttons_client_task (
 
                 if (released_now and (display_context.display_screen_name == SCREEN_BUTTONS)) {
                     // Special case for the button edge debug monitor SCREEN_BUTTONS
-                    Display_screen (display_context, audiomux_context, buttons_context, if_i2c_internal_commands);
+                    Display_screen (display_context, buttons_context, amuxchan_context, if_i2c_internal_commands);
                 } else {}
 
                 // Go on with the "real" code
@@ -808,28 +826,28 @@ void buttons_client_task (
                         switch (display_context.display_screen_name) {
                             case SCREEN_VOLUME: { // Button press
                                 if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
-                                    audiomux_context.volume_dB = VOLUME_MIN_DB; // "Minus" goes to muted
-                                    audiomux_context.volume_buffer_gain_6_dB = false; // Since VOLUME_MIN_DB by repeat button takes too long
+                                    amuxchan_context.audiomux_context[input_channel].volume_dB = VOLUME_MIN_DB; // "Minus" goes to muted
+                                    amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB = false; // Since VOLUME_MIN_DB by repeat button takes too long
                                 } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
-                                    audiomux_context.volume_dB = VOLUME_MAX_DB; // "Plus" goes to fully on
+                                    amuxchan_context.audiomux_context[input_channel].volume_dB = VOLUME_MAX_DB; // "Plus" goes to fully on
                                 } else {
                                     allow_next_screen = true;
                                 }
                             } break;
                             case SCREEN_BASS: { // Button press
                                 if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
-                                    audiomux_context.bass_dB = TONE_MIN_DB;
+                                    amuxchan_context.audiomux_context[input_channel].bass_dB = TONE_MIN_DB;
                                 } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
-                                    audiomux_context.bass_dB = TONE_MAX_DB; // "Plus" goes to fully on
+                                    amuxchan_context.audiomux_context[input_channel].bass_dB = TONE_MAX_DB; // "Plus" goes to fully on
                                 } else {
                                     allow_next_screen = true;
                                 }
                             } break;
                             case SCREEN_TREBLE: { // Button press
                                 if (buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) {
-                                     audiomux_context.treble_dB = TONE_MIN_DB;
+                                     amuxchan_context.audiomux_context[input_channel].treble_dB = TONE_MIN_DB;
                                  } else if (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED) {
-                                     audiomux_context.treble_dB = TONE_MAX_DB;
+                                     amuxchan_context.audiomux_context[input_channel].treble_dB = TONE_MAX_DB;
                                  } else {
                                      allow_next_screen = true;
                                  }
@@ -838,12 +856,12 @@ void buttons_client_task (
                                 if ((buttons_context.button_action[IOF_BUTTON_CENTER] == BUTTON_ACTION_PRESSED) or
                                     (buttons_context.button_action[IOF_BUTTON_RIGHT] == BUTTON_ACTION_PRESSED)) {
 
-                                    audiomux_context.volume_dB = 0;
-                                    audiomux_context.bass_dB   = 0;
-                                    audiomux_context.treble_dB = 0;
+                                    amuxchan_context.audiomux_context[input_channel].volume_dB = 0;
+                                    amuxchan_context.audiomux_context[input_channel].bass_dB   = 0;
+                                    amuxchan_context.audiomux_context[input_channel].treble_dB = 0;
 
                                     // Not cleared since it basically has to do with normal input level. So no code:
-                                    // audiomux_context.volume_buffer_gain_6_dB = false;
+                                    // amuxchan_context.audiomux_context[input_channel].volume_buffer_gain_6_dB = false;
 
                                  } else {
                                      allow_next_screen = true;
@@ -867,26 +885,27 @@ void buttons_client_task (
                             case IOF_BUTTON_CENTER: {
                                 switch (display_context.display_screen_name) {
                                     case SCREEN_VOLUME: { // Button press
-                                        audiomux_context.volume_dB = audiomux_context.volume_dB - VOLUME_STEP_DB;
+                                        amuxchan_context.audiomux_context[input_channel].volume_dB = amuxchan_context.audiomux_context[input_channel].volume_dB - VOLUME_STEP_DB;
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_BASS: { // Button press
-                                        audiomux_context.bass_dB = audiomux_context.bass_dB - TONE_STEP_DB;
+                                        amuxchan_context.audiomux_context[input_channel].bass_dB = amuxchan_context.audiomux_context[input_channel].bass_dB - TONE_STEP_DB;
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_TREBLE: {
-                                        audiomux_context.treble_dB = audiomux_context.treble_dB - TONE_STEP_DB;
+                                        amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB - TONE_STEP_DB;
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_RESET: { // Button press
                                         // Keep volume_dB
-                                        audiomux_context.bass_dB   = audiomux_context.bass_dB   - TONE_STEP_DB; // AMUX=001
-                                        audiomux_context.treble_dB = audiomux_context.treble_dB + TONE_STEP_DB; // AMUX=001
+                                        amuxchan_context.audiomux_context[input_channel].bass_dB   = amuxchan_context.audiomux_context[input_channel].bass_dB   - TONE_STEP_DB; // AMUX=001
+                                        amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB + TONE_STEP_DB; // AMUX=001
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_INPUT: { // Button press
-                                        audiomux_context.input_channel = audiomux_context.input_channel - 1;
-                                        audiomux_context.input_channel and_eq (INPUT_NUM-1);
+                                        amuxchan_context.input_channel = amuxchan_context.input_channel - 1;
+                                        amuxchan_context.input_channel and_eq (INPUT_NUM-1);
+                                        input_channel = amuxchan_context.input_channel; // Removes the effect of the above aliasing
                                     } break;
                                     case SCREEN_ABOUT: { // Button press
                                         // No code
@@ -898,26 +917,27 @@ void buttons_client_task (
                             case IOF_BUTTON_RIGHT: {
                                 switch (display_context.display_screen_name) {
                                     case SCREEN_VOLUME: { // Button press
-                                        audiomux_context.volume_dB = audiomux_context.volume_dB + VOLUME_STEP_DB;
+                                        amuxchan_context.audiomux_context[input_channel].volume_dB = amuxchan_context.audiomux_context[input_channel].volume_dB + VOLUME_STEP_DB;
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_BASS: { // Button press
-                                        audiomux_context.bass_dB = audiomux_context.bass_dB + TONE_STEP_DB;
+                                        amuxchan_context.audiomux_context[input_channel].bass_dB = amuxchan_context.audiomux_context[input_channel].bass_dB + TONE_STEP_DB;
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_TREBLE: { // Button press
-                                        audiomux_context.treble_dB = audiomux_context.treble_dB + TONE_STEP_DB;
+                                        amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB + TONE_STEP_DB;
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_RESET: { // Button press
                                         // Keep volume_dB
-                                        audiomux_context.bass_dB   = audiomux_context.bass_dB   + TONE_STEP_DB; // AMUX=001
-                                        audiomux_context.treble_dB = audiomux_context.treble_dB - TONE_STEP_DB; // AMUX=001
+                                        amuxchan_context.audiomux_context[input_channel].bass_dB   = amuxchan_context.audiomux_context[input_channel].bass_dB   + TONE_STEP_DB; // AMUX=001
+                                        amuxchan_context.audiomux_context[input_channel].treble_dB = amuxchan_context.audiomux_context[input_channel].treble_dB - TONE_STEP_DB; // AMUX=001
                                         buttons_repeat_clear (buttons_context);
                                     } break;
                                     case SCREEN_INPUT: { // Button press
-                                        audiomux_context.input_channel = audiomux_context.input_channel + 1;
-                                        audiomux_context.input_channel and_eq (INPUT_NUM-1);
+                                        amuxchan_context.input_channel = amuxchan_context.input_channel + 1;
+                                        amuxchan_context.input_channel and_eq (INPUT_NUM-1);
+                                        input_channel = amuxchan_context.input_channel; // Removes the effect of the above aliasing
                                     } break;
                                     case SCREEN_ABOUT: { // Button press
                                         // No code
@@ -934,12 +954,12 @@ void buttons_client_task (
 
                     // Common code for left_button_filtered or other_buttons
 
-                    audiomux_context.volume_dB = in_range_int8 (audiomux_context.volume_dB, VOLUME_MIN_DB, VOLUME_MAX_DB);
-                    audiomux_context.bass_dB   = in_range_int8 (audiomux_context.bass_dB,   TONE_MIN_DB,   TONE_MAX_DB);
-                    audiomux_context.treble_dB = in_range_int8 (audiomux_context.treble_dB, TONE_MIN_DB,   TONE_MAX_DB);
+                    amuxchan_context.audiomux_context[input_channel].volume_dB = in_range_int8 (amuxchan_context.audiomux_context[input_channel].volume_dB, VOLUME_MIN_DB, VOLUME_MAX_DB);
+                    amuxchan_context.audiomux_context[input_channel].bass_dB   = in_range_int8 (amuxchan_context.audiomux_context[input_channel].bass_dB,   TONE_MIN_DB,   TONE_MAX_DB);
+                    amuxchan_context.audiomux_context[input_channel].treble_dB = in_range_int8 (amuxchan_context.audiomux_context[input_channel].treble_dB, TONE_MIN_DB,   TONE_MAX_DB);
 
                     display_context.screen_timeouts_since_last_button_countdown = NUM_TIMEOUTS_BEFORE_SCREEN_DARK; // Button press
-                    do_audiomux_and_display (audiomux_context, if_i2c_general_commands, display_context, buttons_context, log, if_i2c_internal_commands);
+                    do_audiomux_and_display (if_i2c_general_commands, display_context, buttons_context, amuxchan_context, log, if_i2c_internal_commands);
 
                 } else {
                     // Not left_button_filtered or other_buttons, no code

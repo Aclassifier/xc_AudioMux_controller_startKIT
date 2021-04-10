@@ -19,7 +19,25 @@
                                                                   // https://www.mikroe.com/audiomux-click
     } i2c_dev_address_internal_e; // i2c_dev_address_t
 
+    #define I2C_HARDWARE_NUM_BUSES  2
+    //
+    typedef enum i2c_hardware_iof_bus_e {
+        I2C_HARDWARE_IOF_DISPLAY,
+        I2C_HARDWARE_IOF_AUDIOMUX
+    } i2c_hardware_iof_bus_e;
+
+    #define I2C_HARDWARE_NUM_CLIENTS 1
+
+    typedef enum i2c_display_iof_client_e {
+        I2C_DISPLAY_IOF_ICLIENT_0,
+    } i2c_display_iof_client_e;
+
+    typedef enum i2c_audiomux_iof_client_e {
+        I2C_AUDIOMUX_IOF_ICLIENT_0,
+    } i2c_audiomux_iof_client_e;
+
 #elif (IS_MYTARGET==IS_MYTARGET_XCORE_200_EXPLORER)
+    #error Meaningless target since not space for in my plastic box
 
     typedef enum i2c_dev_address_internal_e {
         I2C_ADDRESS_OF_ACCELEROMETER_AND_MAGNETOMETER = 0x1E, // FXOS8700CQ BMG160 3-axis gyroscope sensor
@@ -32,6 +50,7 @@
     } i2c_dev_address_internal_e; // i2c_dev_address_t
 
 #elif (IS_MYTARGET==IS_MYTARGET_XCORE_XA_MODULE)
+    #error Meaningless target since I could not flash it
 
     typedef enum i2c_dev_address_internal_e {
         I2C_ADDRESS_OF_DISPLAY                        =  0x3C,    // UG-2832HSWEG02 with chip SSD1306 from Univision Technology Inc.
@@ -45,23 +64,6 @@
     #error TARGET NOT DEFINED
 #endif
 
-#define I2C_HARDWARE_NUM_BUSES  2
-//
-typedef enum i2c_hardware_iof_bus_t {
-    I2C_HARDWARE_IOF_DISPLAY,
-    I2C_HARDWARE_IOF_AUDIOMUX
-} i2c_hardware_iof_bus_t;
-
-#define I2C_HARDWARE_NUM_CLIENTS 1
-
-typedef enum i2c_display_iof_client_e {
-    I2C_DISPLAY_IOF_ICLIENT_0,
-} i2c_display_iof_client_e;
-
-typedef enum i2c_audiomux_iof_client_e {
-    I2C_AUDIOMUX_IOF_ICLIENT_0,
-} i2c_audiomux_iof_client_e;
-
 #define LEN_I2C_SUBADDRESS 1 // Most often some register address after the device address i2c_dev_address_internal_e
 #define IOF_I2C_SUBADDRESS 0
 typedef uint8_t i2c_uint8_t;
@@ -69,27 +71,30 @@ typedef uint8_t i2c_uint8_t;
 typedef interface i2c_general_commands_if {
 
     bool write_reg_ok (
-            const i2c_hardware_iof_bus_t i2c_hardware_iof_bus,
-            const i2c_dev_address_t      dev_addr,
-            const i2c_uint8_t            i2c_bytes[], // reg_addr followed by data
-            const static unsigned        nbytes); // must include space for LEN_I2C_SUBADDRESS
+            const i2c_hardware_iof_bus_e    i2c_hardware_iof_bus,
+            const i2c_audiomux_iof_client_e i2c_iof_client,
+            const i2c_dev_address_t         dev_addr,
+            const i2c_uint8_t               i2c_bytes[], // reg_addr followed by data
+            const static unsigned           nbytes); // must include space for LEN_I2C_SUBADDRESS
 
     bool read_reg_ok (
-            const i2c_hardware_iof_bus_t i2c_hardware_iof_bus,
-            const i2c_dev_address_t      dev_addr,
-            const i2c_uint8_t            reg_addr,
-                  uint8_t                &the_register);
+            const i2c_hardware_iof_bus_e    i2c_hardware_iof_bus,
+            const i2c_audiomux_iof_client_e i2c_iof_client,
+            const i2c_dev_address_t         dev_addr,
+            const i2c_uint8_t               reg_addr,
+                  uint8_t                   &the_register);
 
 } i2c_general_commands_if;
 
 typedef interface i2c_internal_commands_if {
 
     bool write_display_ok (
-            const i2c_hardware_iof_bus_t i2c_hardware_iof_bus,
-            const i2c_dev_address_t      dev_addr,
-            const i2c_reg_address_t      reg_addr,
-            const unsigned char          data[],
-            const unsigned               nbytes);
+            const i2c_hardware_iof_bus_e   i2c_hardware_iof_bus,
+            const i2c_display_iof_client_e i2c_iof_client,
+            const i2c_dev_address_t        dev_addr,
+            const i2c_reg_address_t        reg_addr,
+            const unsigned char            data[],
+            const unsigned                 nbytes);
 
 } i2c_internal_commands_if;
 

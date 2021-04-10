@@ -55,7 +55,7 @@ bool writeDisplay_i2c_command (client i2c_internal_commands_if if_i2c_internal_c
     unsigned char data[] = {c};
     int           nbytes = 1;
 
-    error = error bitor not if_i2c_internal_commands.write_display_ok (I2C_DISPLAY_IOF_ICLIENT_0, I2C_ADDRESS_OF_DISPLAY, DISPLAY_REG_ADDR_COMMAND, data, nbytes);
+    error = error bitor not if_i2c_internal_commands.write_display_ok (I2C_HARDWARE_IOF_DISPLAY, I2C_DISPLAY_IOF_ICLIENT_0, I2C_ADDRESS_OF_DISPLAY, DISPLAY_REG_ADDR_COMMAND, data, nbytes);
 
     return not error;
 }
@@ -66,7 +66,7 @@ bool writeDisplay_i2c_data (client i2c_internal_commands_if if_i2c_internal_comm
     unsigned char data[] = {c};
     int           nbytes = 1;
 
-    error = error bitor not if_i2c_internal_commands.write_display_ok (I2C_DISPLAY_IOF_ICLIENT_0, I2C_ADDRESS_OF_DISPLAY, DISPLAY_REG_ADDR_DATA, data, nbytes);
+    error = error bitor not if_i2c_internal_commands.write_display_ok (I2C_HARDWARE_IOF_DISPLAY, I2C_DISPLAY_IOF_ICLIENT_0, I2C_ADDRESS_OF_DISPLAY, DISPLAY_REG_ADDR_DATA, data, nbytes);
 
     return not error;
 }
@@ -292,7 +292,7 @@ bool writeToDisplay_i2c_all_buffer (client i2c_internal_commands_if if_i2c_inter
         }
         i--; // Went one too far above
 
-        error = error bitor not if_i2c_internal_commands.write_display_ok (I2C_DISPLAY_IOF_ICLIENT_0, I2C_ADDRESS_OF_DISPLAY, DISPLAY_REG_ADDR_DATA, data, nbytes); // Was i2c_master_write_reg (device, reg_addr, data, nbytes, i2c_internal_config);
+        error = error bitor not if_i2c_internal_commands.write_display_ok (I2C_HARDWARE_IOF_DISPLAY, I2C_DISPLAY_IOF_ICLIENT_0, I2C_ADDRESS_OF_DISPLAY, DISPLAY_REG_ADDR_DATA, data, nbytes); // Was i2c_master_write_reg (device, reg_addr, data, nbytes, i2c_internal_config);
     }
     return not error;
 }
