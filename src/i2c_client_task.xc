@@ -146,9 +146,8 @@ void I2C_Client_Task (
                     const i2c_hardware_iof_bus_e   i2c_hardware_iof_bus,
                     const i2c_audiomux_iof_client_e i2c_iof_client,
                     const i2c_dev_address_t        dev_addr,
-                    const unsigned char            reg_addr,
-                          uint8_t                  &the_register
-                ) -> bool ok: {
+                    const unsigned char            reg_addr
+                ) -> {bool ok, uint8_t the_register}: {
 
                 // lib_i2c:
                 i2c_regop_res_t result;

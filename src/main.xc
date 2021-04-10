@@ -113,7 +113,7 @@ int main() {
         on tile[0]: {
             [[combine]]
             par {
-                buttons_client_task (if_i2c_internal_commands[0], if_i2c_general_commands[0], if_buttons, p_display_notReset, if_softblinker);
+                buttons_client_task (if_i2c_internal_commands[I2C_DISPLAY_IOF_ICLIENT_0], if_i2c_general_commands[I2C_AUDIOMUX_IOF_ICLIENT_0], if_buttons, p_display_notReset, if_softblinker);
 
                 #if (USE_BUTTON_TASK_NUM==1)
                     Button_Task_1 (IOF_BUTTON_LEFT,   inP_button_left,   if_buttons[IOF_BUTTON_LEFT]);   // [[combinable]]
@@ -137,8 +137,8 @@ int main() {
 
         par {
             on tile[0].core[5]: I2C_Client_Task  (if_i2c_internal_commands, if_i2c_general_commands, if_i2c);
-            on tile[0].core[6]: i2c_master       (if_i2c[I2C_HARDWARE_IOF_DISPLAY],  1, p_display_scl,  p_display_sda,  I2C_DISPLAY_MASTER_SPEED_KBPS); // Synchronous==distributable
-            on tile[0].core[6]: i2c_master       (if_i2c[I2C_HARDWARE_IOF_AUDIOMUX], 1, p_audiomux_scl, p_audiomux_sda, I2C_AUDIOMUX_MASTER_SPEED_KBPS); // Synchronous==distributable
+            on tile[0].core[6]: i2c_master       (if_i2c[I2C_HARDWARE_IOF_DISPLAY],  I2C_HARDWARE_NUM_CLIENTS, p_display_scl,  p_display_sda,  I2C_DISPLAY_MASTER_SPEED_KBPS); // Synchronous==distributable
+            on tile[0].core[6]: i2c_master       (if_i2c[I2C_HARDWARE_IOF_AUDIOMUX], I2C_HARDWARE_NUM_CLIENTS, p_audiomux_scl, p_audiomux_sda, I2C_AUDIOMUX_MASTER_SPEED_KBPS); // Synchronous==distributable
             on tile[0].core[7]: pwm_for_LED_task (if_pwm, outP1_d4_led);
             on tile[0].core[7]: softblinker_task (if_pwm, if_softblinker);
         }

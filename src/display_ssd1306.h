@@ -64,9 +64,11 @@ extern void drawHorisontalLineInternal_in_buffer (int16_t x, int16_t y, int16_t 
 #define SSD1306_128_32
 
 #if defined SSD1306_128_64
+    // UG-2864HSWEG01 with chip SSD1306 from Univision Technology Inc. 128x64 OLED. Adafruit 326
     #define SSD1306_LCDWIDTH  128
     #define SSD1306_LCDHEIGHT  64
 #elif defined SSD1306_128_32
+    // UG-2832HSWEG02 with chip SSD1306 from Univision Technology Inc. 128x32 OLED. Adafruit 931
     #define SSD1306_LCDWIDTH  128
     #define SSD1306_LCDHEIGHT  32
 #elif defined SSD1306_128_16

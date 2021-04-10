@@ -12,9 +12,11 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.2.00" // x.y.zz
-#define AUDIOMUX_VERSION_NUM    1200
-//
+#define AUDIOMUX_VERSION_STR "1.2.01" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1201
+
+// 1201     10Apr2021           read_reg_ok coded better, even if not used. No change in code
+//                              Constraints: C:8/4 T:10/4 C:32/7 M:27348 S:3808 C:20050 D:3490
 // 1200     10Apr2021 AMUX=012  Bass/treble etc. per input
 //                              Constraints: C:8/4 T:10/4 C:32/7 M:27364 S:3808 C:20066 D:3490
 // 1109     08dec2020           my_script.xta added
