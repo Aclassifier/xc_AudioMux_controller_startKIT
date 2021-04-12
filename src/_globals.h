@@ -49,7 +49,11 @@
 #define IS_MYTARGET_STARTKIT           1 // Final
 #define IS_MYTARGET_XCORE_200_EXPLORER 2 // Not tested
 #define IS_MYTARGET_XCORE_XA_MODULE    3 // Not able to flash it
+#define IS_MYTARGET_MIC_ARRAY          4
 
+
+// -------> SEEMS LIKE THE PREPROCESSOR ONLY TAKES THE FIRST <--------
+//
 #if (MYTARGET==STARTKIT)
     #define IS_MYTARGET IS_MYTARGET_STARTKIT
 #elif (MYTARGET==XCORE-200-EXPLORER)
@@ -74,6 +78,8 @@
     // EXTERNAL    512KB external SPI FLASH of type M25P40. Used to boot XCORE
     //
 
+#elif (MYTARGET==MIC_ARRAY)
+    #define IS_MYTARGET IS_MYTARGET_MIC_ARRAY // Just for testing the display on that HW
 #else
     #error NO TARGET DEFINED
 #endif

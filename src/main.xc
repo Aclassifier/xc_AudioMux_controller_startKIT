@@ -86,6 +86,20 @@
                                                                       // At least 3 us low to reset
     port                p_audiomux_scl     = on tile[0]: XS1_PORT_1B; // External xCORE XA J1 P6
     port                p_audiomux_sda     = on tile[0]: XS1_PORT_1D; // External xCORE XA J1 P8
+
+#elif (IS_MYTARGET == IS_MYTARGET_MIC_ARRAY)
+    out buffered port:1 outP1_d4_led       = on tile[0]: XS1_PORT_1K;
+
+    in  buffered port:1 inP_button_left    = on tile[0]: XS1_PORT_1D;
+    in  buffered port:1 inP_button_center  = on tile[0]: XS1_PORT_1I;
+    in  buffered port:1 inP_button_right   = on tile[0]: XS1_PORT_1P;
+
+    port                p_display_scl      = on tile[0]: XS1_PORT_1H;
+    port                p_display_sda      = on tile[0]: XS1_PORT_1G;
+    out port            p_display_notReset = on tile[0]: XS1_PORT_1A;
+
+    port                p_audiomux_scl     = on tile[0]: XS1_PORT_1L;
+    port                p_audiomux_sda     = on tile[0]: XS1_PORT_1J;
 #endif
 
 

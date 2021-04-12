@@ -60,6 +60,34 @@
                                             // I2C has per def only 7-bits or 10-bits address. SO, THE TDA7468 IS ONLY EVER WRITTEN TO!
                                             // https://www.mikroe.com/audiomux-click
     } i2c_dev_address_internal_e; // i2c_dev_address_t
+
+#elif (IS_MYTARGET == IS_MYTARGET_MIC_ARRAY)
+
+    typedef enum i2c_dev_address_internal_e {
+        I2C_ADDRESS_OF_DISPLAY   =  0x7A,    // UG-2832HSWEG02 with chip SSD1306 from Univision Technology Inc. Adafruit 931
+        I2C_ADDRESS_OF_AUDIOMUX  = (0x88>>1) // AUDIOMUX CLICK from MikroElektronika with chip TDA7468D from ST
+                                             // BIT0 is R/W and is not part of address. BIT0 is inserted by READ (to 1) or WRITE (to 0) type functions.
+                                             // Therefore the data sheet is wrong when it says that the address is 0x88.
+                                             // I2C has per def only 7-bits or 10-bits address. SO, THE TDA7468 IS ONLY EVER WRITTEN TO!
+                                             // https://www.mikroe.com/audiomux-click
+    } i2c_dev_address_internal_e; // i2c_dev_address_t
+
+    #define I2C_HARDWARE_NUM_BUSES  2
+    //
+    typedef enum i2c_hardware_iof_bus_e {
+        I2C_HARDWARE_IOF_DISPLAY,
+        I2C_HARDWARE_IOF_AUDIOMUX
+    } i2c_hardware_iof_bus_e;
+
+    #define I2C_HARDWARE_NUM_CLIENTS 1
+
+    typedef enum i2c_display_iof_client_e {
+        I2C_DISPLAY_IOF_ICLIENT_0,
+    } i2c_display_iof_client_e;
+
+    typedef enum i2c_audiomux_iof_client_e {
+        I2C_AUDIOMUX_IOF_ICLIENT_0,
+    } i2c_audiomux_iof_client_e;
 #else
     #error TARGET NOT DEFINED
 #endif

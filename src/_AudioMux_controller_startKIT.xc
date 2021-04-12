@@ -33,6 +33,8 @@
         #warning TARGET: XCORE-200-EXPLORER
     #elif (IS_MYTARGET == IS_MYTARGET_XCORE_XA_MODULE)
         #warning TARGET: XCORE-XA-MODULE
+    #elif (IS_MYTARGET == IS_MYTARGET_MIC_ARRAY)
+       #warning TARGET: MIC_ARRAY
     #else
         #warning NO TARGET DEFINED
     #endif
@@ -357,6 +359,17 @@ bool // i2c_ok
                                           XTIMECOMPOSER_VERSION_STR,
                                           char_OE_str, smiley_str);
                        //                                            AudioMUX XMOS XA
+                       //                                            XC CODE JUN 18 2020
+                       //                                            V:0.1.75  xT:14.4.1
+                       //                                            Øyvind Teig
+                #elif (IS_MYTARGET == IS_MYTARGET_MIC_ARRAY)
+                    display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
+                                          "MicArray XMOS XA\nXC KODE %s\nV:%s  xT:%s\n%syvind Teig",
+                                          __DATE__,
+                                          AUDIOMUX_VERSION_STR,
+                                          XTIMECOMPOSER_VERSION_STR,
+                                          char_OE_str);
+                       //                                            MicArray XMOS XA
                        //                                            XC CODE JUN 18 2020
                        //                                            V:0.1.75  xT:14.4.1
                        //                                            Øyvind Teig
