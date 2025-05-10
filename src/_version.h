@@ -12,9 +12,13 @@
 //
 #define XTIMECOMPOSER_VERSION_STR "14.4.1"
 
-#define AUDIOMUX_VERSION_STR "1.2.01" // x.y.zz
-#define AUDIOMUX_VERSION_NUM    1201
+#define AUDIOMUX_VERSION_STR "1.2.02" // x.y.zz
+#define AUDIOMUX_VERSION_NUM    1202
 
+// 1202     10May2025           making ready for GitHub. New .gitignore and README.md
+// 1202     20Aug2021           Built with xTIMEcomposer 14.4.1 on Mac Mini (2010)
+//                              lib_i2c ticked off, built, ticked on: ok (maybe clean all would have been enough)
+//                              Constraints: C:8/4 T:10/4 C:32/7 M:27348 S:3808 C:20050 D:3490 YESS!
 // 1201     12Apr2021           Same version number. Just tested with MIC_ARRAY to see if I could get the display up
 // 1201     10Apr2021           read_reg_ok coded better, even if not used. No change in code
 //                              Constraints: C:8/4 T:10/4 C:32/7 M:27348 S:3808 C:20050 D:3490

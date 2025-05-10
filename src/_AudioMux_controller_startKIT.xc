@@ -337,19 +337,19 @@ bool // i2c_ok
 
                 setTextSize(1); // SSD1306_TS1_LINE_CHAR_NUM gives 21 chars per line (but crlf takes two, if used)
 
-                display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
-                                      "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG   %s BLOG 208",
-                                      __DATE__,
-                                      AUDIOMUX_VERSION_STR,
-                                      XTIMECOMPOSER_VERSION_STR,
-                                      char_OE_str,
-                                      char_right_arrow_str);
-                   //                                            AudioMUX + startKIT
-                   //                                            XMOS XC JUN 18 2020
-                   //                                            V:1.1.0  xT:14.4.1
-                   //                                            Ø.TEIG   → BLOG 208
-
-                #if (IS_MYTARGET == IS_MYTARGET_XCORE_200_EXPLORER)
+                #if (IS_MYTARGET == IS_MYTARGET_STARTKIT)
+                    display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,
+                                          "AudioMUX + startKIT\nXMOS XC %s\nV:%s  xT:%s\n%s.TEIG   %s BLOG 208",
+                                          __DATE__,
+                                          AUDIOMUX_VERSION_STR,
+                                          XTIMECOMPOSER_VERSION_STR,
+                                          char_OE_str,
+                                          char_right_arrow_str);
+                       //                                            AudioMUX + startKIT
+                       //                                            XMOS XC JUN 18 2020
+                       //                                            V:1.1.0  xT:14.4.1
+                       //                                            Ø.TEIG   → BLOG 208
+                #elif (IS_MYTARGET == IS_MYTARGET_XCORE_200_EXPLORER)
                     #warning MISSING TEXT
                 #elif (IS_MYTARGET == IS_MYTARGET_XCORE_XA_MODULE)
                     display_context.sprintf_numchars = sprintf (display_context.display_ts1_chars,

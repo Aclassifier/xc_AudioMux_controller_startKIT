@@ -2,7 +2,12 @@
 # compiled for. It either refers to an XN file in the source directories
 # or a valid argument for the --target option when compiling
 TARGET = STARTKIT
-# TARGET = MIC-ARRAY-1V3 # Use MYTARGET=MIC_ARRAY below
+# Use MYTARGET=MIC_ARRAY below
+# TARGET = MIC-ARRAY-1V3
+
+# =================================================================================================
+# Comments are on separate lines in make! This avoids "Invalid configuration.  Stop." See blog 141
+# =================================================================================================
 
 # The APP_NAME variable determines the name of the final .xe file. It should
 # not include the .xe postfix. If left blank the name will default to
@@ -10,14 +15,14 @@ TARGET = STARTKIT
 APP_NAME = _AudioMux_controller_startKIT
 
 # The USED_MODULES variable lists other module used by the application.
-USED_MODULES = lib_i2c
+USED_MODULES = lib_i2c lib_logging
 
 # The flags passed to xcc when building the application
 # You can also set the following to override flags for a particular language:
 # XCC_XC_FLAGS, XCC_C_FLAGS, XCC_ASM_FLAGS, XCC_CPP_FLAGS
 # If the variable XCC_MAP_FLAGS is set it overrides the flags passed to
 # xcc for the final link (mapping) stage.
-XCC_FLAGS = -O2 -g -DMYTARGET=STARTKIT -DWARNINGS=1 -DDISPLAY_FAST_DARK=0
+XCC_FLAGS = -O2 -g -DMYTARGET=STARTKIT -DWARNINGS=0 -DDISPLAY_FAST_DARK=0
 XCC_MAP_FLAGS = -Xmapper --map -Xmapper _AudioMux_controller_startKIT.txt -report
 
 # The XCORE_ARM_PROJECT variable, if set to 1, configures this
